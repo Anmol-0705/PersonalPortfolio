@@ -7,13 +7,12 @@ modern, premium foundation.
 
 ## Status
 
-**Phase 2 — Core Homepage: Complete.**
+**Phase 3 — Dynamic Project Showcase: Complete.**
 
-The homepage (`/`) is fully built out: hero, about, services, skills,
-featured projects preview, engagement models preview, and a final call to
-action. Other routes (`/about`, `/projects`, `/projects/[slug]`,
-`/services`, `/contact`) remain minimal placeholders. The full project
-showcase, contact form, and interactive features (terminal, engagement
+The homepage, the full `/projects` listing, and dynamic `/projects/[slug]`
+case study pages are all live and driven by a single typed project data
+source. `/about`, `/services`, and `/contact` remain minimal placeholders.
+The contact form and interactive features (terminal, engagement
 calculator, quote modal, etc.) are not yet built. See
 [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for the full
 implementation record.
@@ -55,13 +54,17 @@ components/
   ui/                  Reusable design-system primitives
   hero/                Homepage hero
   sections/            Homepage content sections
-data/                  Typed static content (site configuration)
-lib/                   Shared utilities
+  projects/            Project card, grid, media, and case study UI
+data/                  Typed static content (site config, project data)
+lib/                   Shared utilities and data-access functions
+types/                 Shared TypeScript types
 docs/                  Project documentation and handoff state
 ```
 
 Design tokens (colors, typography, neo-brutalist and retro utilities) live
-in [`app/globals.css`](app/globals.css).
+in [`app/globals.css`](app/globals.css). Project content lives in
+[`data/projects.ts`](data/projects.ts) and is the single source of truth
+for the homepage preview, `/projects`, and every `/projects/[slug]` page.
 
 ## Completed
 
@@ -86,8 +89,21 @@ in [`app/globals.css`](app/globals.css).
 - All homepage content sourced from real project information — no
   fabricated clients, metrics, or URLs
 
+**Phase 3 — Dynamic Project Showcase**
+
+- Typed project data architecture: `types/project.ts` → `data/projects.ts`
+  → `lib/projects.ts` → UI components → routes
+- Reusable `ProjectCard`, `ProjectGrid`, `ProjectMedia`, and
+  `ProjectCaseStudy` components
+- Full `/projects` listing page and statically generated `/projects/[slug]`
+  case study pages for all five real projects, with a proper 404 for
+  unknown slugs
+- Homepage featured-projects section now reads from the same data source
+  instead of local duplicated data
+- Only verified technologies are shown per project; nothing about a
+  project's stack, clients, or outcomes is fabricated
+
 ## Next Steps
 
-Phase 3 — Project Showcase and Dynamic Project Architecture: full case
-studies, dynamic project data architecture, and the complete `/projects`
-experience.
+Phase 4 — Engagement Selector and Conversion Flow: the interactive
+engagement calculator, quote modal, and related conversion features.

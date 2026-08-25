@@ -1,22 +1,34 @@
 import type { Metadata } from "next";
-import { RetroWindow } from "@/components/ui/retro-window";
+import { ProjectGrid } from "@/components/projects/project-grid";
+import { getAllProjects } from "@/lib/projects";
 import { siteConfig } from "@/data/site-config";
 
 export const metadata: Metadata = {
   title: `Projects — ${siteConfig.name}`,
+  description: `A collection of projects built by ${siteConfig.name}, ${siteConfig.role}.`,
 };
 
 export default function ProjectsPage() {
+  const projects = getAllProjects();
+
   return (
     <div className="container-app py-16 sm:py-24">
-      <RetroWindow title="projects/" className="mx-auto max-w-2xl">
-        <h1 className="font-sans text-2xl font-bold sm:text-3xl">Projects</h1>
-        <p className="mt-4 font-sans text-muted">
-          The full project showcase is coming in a future phase. Check back
-          soon for case studies from {siteConfig.projectsDelivered} delivered
-          projects.
+      <div className="max-w-2xl">
+        <p className="font-retro text-lg tracking-wide text-accent-secondary">
+          {"// PROJECTS"}
         </p>
-      </RetroWindow>
+        <h1 className="mt-2 font-sans text-3xl font-bold sm:text-5xl">
+          Selected Work
+        </h1>
+        <p className="mt-4 font-sans text-lg text-muted">
+          A collection of websites and applications built across agency,
+          industrial, creative, real estate, and EdTech projects.
+        </p>
+      </div>
+
+      <div className="mt-12">
+        <ProjectGrid projects={projects} />
+      </div>
     </div>
   );
 }
