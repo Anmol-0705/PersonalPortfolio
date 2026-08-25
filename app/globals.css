@@ -1,0 +1,178 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------- */
+/* Design tokens                                                          */
+/* ---------------------------------------------------------------------- */
+
+:root {
+  /* Raw palette */
+  --pixel-purple: #8b5cf6;
+  --crt-green: #39ff14;
+  --cyber-yellow: #ffe600;
+  --electric-blue: #00a8ff;
+  --hot-pink: #ff3cac;
+  --pure-black: #000000;
+  --off-white: #f5f1e8;
+  --dark-bg: #111111;
+
+  /* Semantic tokens (dark, retro-desktop base theme) */
+  --background: var(--dark-bg);
+  --foreground: var(--off-white);
+  --surface: #18181b;
+  --surface-raised: #1f1f23;
+  --border: var(--off-white);
+  --accent: var(--pixel-purple);
+  --accent-secondary: var(--crt-green);
+  --muted: #9a9a92;
+  --focus: var(--cyber-yellow);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-muted: var(--muted);
+  --color-focus: var(--focus);
+
+  --color-pixel-purple: var(--pixel-purple);
+  --color-crt-green: var(--crt-green);
+  --color-cyber-yellow: var(--cyber-yellow);
+  --color-electric-blue: var(--electric-blue);
+  --color-hot-pink: var(--hot-pink);
+  --color-pure-black: var(--pure-black);
+  --color-off-white: var(--off-white);
+
+  --font-sans: var(--font-space-grotesk);
+  --font-retro: var(--font-vt323);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Base                                                                   */
+/* ---------------------------------------------------------------------- */
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-off-white);
+}
+
+/* Keyboard focus is always visible; mouse focus stays quiet. */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Layout utilities                                                       */
+/* ---------------------------------------------------------------------- */
+
+@utility container-app {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+
+  @media (min-width: 640px) {
+    padding-inline: 2rem;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Neo-brutalist utilities                                                */
+/* ---------------------------------------------------------------------- */
+
+@utility neo-border {
+  border: 2px solid var(--color-border);
+}
+
+@utility neo-border-thick {
+  border: 3px solid var(--color-border);
+}
+
+@utility neo-shadow {
+  box-shadow: 4px 4px 0 0 var(--color-border);
+}
+
+@utility neo-shadow-sm {
+  box-shadow: 2px 2px 0 0 var(--color-border);
+}
+
+@utility neo-shadow-accent {
+  box-shadow: 6px 6px 0 0 var(--color-accent);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Retro-desktop accent utilities (opt-in, never applied globally)        */
+/* ---------------------------------------------------------------------- */
+
+@utility bg-grid {
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in oklab, var(--color-border) 12%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--color-border) 12%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 40px 40px;
+}
+
+@utility scanlines {
+  position: relative;
+  isolation: isolate;
+}
+
+.scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--color-pure-black) 60%, transparent) 0,
+    color-mix(in oklab, var(--color-pure-black) 60%, transparent) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.15;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Motion                                                                 */
+/* ---------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
