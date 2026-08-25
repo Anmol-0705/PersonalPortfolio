@@ -5,7 +5,7 @@ across development phases. Update it whenever a phase completes.
 
 ## Current Phase
 
-Phase 1 — Foundation
+Phase 2 — Core Homepage
 
 ## Phase Status
 
@@ -21,7 +21,7 @@ main
 
 ## Latest Commit
 
-`feat: initialize portfolio foundation` (this commit — see `git log` for
+`feat: build core portfolio homepage` (this commit — see `git log` for
 the hash)
 
 ## Build Status
@@ -38,8 +38,10 @@ PASS — `npm run lint` reports no errors or warnings.
 
 - Next.js 16 (App Router, Turbopack), React 19, TypeScript 5
 - Tailwind CSS v4
-- Framer Motion (installed, not yet used in any component)
-- Lucide React (used in `Navbar` and `Modal`)
+- Framer Motion — used in `RetroHero` (staggered entrance, subtle infinite
+  float on decorative elements, gated by `useReducedMotion`)
+- Lucide React — used in `Navbar`, `Modal`, `ServicesSection`,
+  `ProjectsSection`, `EngagementSection`
 - `next/font/google`: Space Grotesk (sans, headings + body), VT323 (retro
   monospace, labels/system UI only)
 
@@ -50,9 +52,11 @@ Production: `next`, `react`, `react-dom`, `framer-motion`, `lucide-react`.
 Dev: `typescript`, `tailwindcss`, `@tailwindcss/postcss`, `eslint`,
 `eslint-config-next`, `@types/node`, `@types/react`, `@types/react-dom`.
 
-No CMS, database, ORM, email provider, form library, or state-management
-library is installed. `react-hook-form` and `zod` are explicitly deferred
-to a later phase.
+No new dependencies were added in Phase 2. No CMS, database, ORM, email
+provider, form library, or state-management library is installed.
+`react-hook-form` and `zod` remain deferred. Redux is listed as an
+existing skill in the Skills section but is **not** installed — it is not
+used by this codebase.
 
 ## Current Directory Structure
 
@@ -65,7 +69,7 @@ app/
     [slug]/page.tsx
   services/page.tsx
   layout.tsx
-  page.tsx
+  page.tsx                 (composes the full homepage)
   globals.css
   not-found.tsx
   favicon.ico
@@ -80,6 +84,16 @@ components/
     tech-badge.tsx
     toggle.tsx
     modal.tsx
+  hero/
+    retro-hero.tsx
+  sections/
+    section-heading.tsx    (shared heading, not in original target list)
+    about-section.tsx
+    services-section.tsx
+    skills-section.tsx
+    projects-section.tsx
+    engagement-section.tsx
+    cta-section.tsx
 data/
   site-config.ts
 lib/
@@ -89,108 +103,127 @@ docs/
 public/                (empty — assets added as needed in future phases)
 ```
 
-Directories in the target architecture that do not yet exist
-(`components/hero/`, `components/projects/`, `components/engagement/`,
-`components/terminal/`, `components/contact/`, `components/sections/`,
+Directories still deferred to later phases: `components/projects/`,
+`components/engagement/`, `components/terminal/`, `components/contact/`,
 `hooks/`, `types/`, `data/projects.ts`, `lib/projects.ts`,
-`lib/quote-estimator.ts`) are intentionally deferred — they belong to
-features scoped for later phases and were not stubbed out empty.
+`lib/quote-estimator.ts`. The featured-project data used on the homepage
+is intentionally kept local to `projects-section.tsx` (not promoted to
+`data/projects.ts`) so Phase 3's dynamic project architecture can define
+that shape without reworking Phase 2 code.
 
 ## Routes
 
-| Route              | Status                                  |
-| ------------------ | ---------------------------------------- |
-| `/`                | Minimal placeholder (name, role, CTAs)  |
-| `/about`           | Minimal placeholder                      |
-| `/projects`        | Minimal placeholder                      |
-| `/projects/[slug]` | Minimal placeholder, dynamic param wired |
-| `/services`        | Minimal placeholder                      |
-| `/contact`         | Minimal placeholder, mailto link only    |
-| `not-found`        | Implemented, styled                      |
+| Route              | Status                                          |
+| ------------------ | ------------------------------------------------ |
+| `/`                | **Full homepage** — hero through final CTA       |
+| `/about`           | Minimal placeholder                              |
+| `/projects`        | Minimal placeholder                              |
+| `/projects/[slug]` | Minimal placeholder, dynamic param wired         |
+| `/services`        | Minimal placeholder                              |
+| `/contact`         | Minimal placeholder, mailto link only            |
+| `not-found`        | Implemented, styled                              |
 
-None of these routes contain final content. They exist to validate the
-route structure and design system, and are ready for real content in
-future phases.
+The homepage's "View Project" CTAs link to `/projects/[slug]` using real
+project slugs (e.g. `/projects/the-creation-edit`); that route already
+renders its Phase 1 placeholder, so nothing fabricated is linked.
 
-## Implemented Components
+## Implemented Components (new in Phase 2)
 
-- `components/ui/neo-button.tsx` — `NeoButton` + `neoButtonClasses` helper
-  (primary, secondary, ghost variants; hard shadow, pressed state, focus
-  ring). The class helper exists so link-based CTAs can share the same
-  visual style without nesting an anchor inside a `<button>`.
-- `components/ui/neo-card.tsx` — `NeoCard` generic surface wrapper.
-- `components/ui/retro-window.tsx` — `RetroWindow` title-bar container with
-  decorative (aria-hidden) window controls.
-- `components/ui/tech-badge.tsx` — `TechBadge` sticker-style label, 5 color
-  variants mapped to the palette.
-- `components/ui/toggle.tsx` — `Toggle` accessible controlled switch
-  (`role="switch"`), built for future CRT/cursor/sound toggles.
-- `components/ui/modal.tsx` — `Modal` accessible dialog: portal-rendered,
-  Escape-to-close, overlay-click-to-close, focus trap + focus restore.
-- `components/layout/navbar.tsx` — sticky header, active-route highlighting,
-  mobile menu (client component).
-- `components/layout/footer.tsx` — minimal footer with email + identity.
+- `components/hero/retro-hero.tsx` — `RetroHero`. Client component.
+  Two-column layout: eyebrow/status, headline, subtext, availability
+  indicator, primary/secondary CTAs, and a real stats strip on the left;
+  a floating `RetroWindow` "system profile" panel with decorative
+  floating `TechBadge` stickers (hidden below `sm`) on the right.
+  Staggered entrance animation and a slow infinite float on the
+  decorative elements, both wrapped in `MotionConfig reducedMotion="user"`
+  and gated additionally via `useReducedMotion` for the JS-driven loops.
+- `components/sections/section-heading.tsx` — small shared
+  eyebrow/title/description pattern reused by every section for visual
+  consistency. Not in the original target file list; added because six
+  sections needed the identical heading treatment.
+- `components/sections/about-section.tsx` — value-proposition copy next
+  to a `RetroWindow` "capabilities.sys" panel. No photo (per instruction).
+- `components/sections/services-section.tsx` — four `NeoCard`s (icon,
+  label, title, description) for the four defined services, with a hover
+  lift effect.
+- `components/sections/skills-section.tsx` — `TechBadge` grid grouped
+  into Frontend / Backend / Data & Services / DevOps & Deployment.
+- `components/sections/projects-section.tsx` — three featured project
+  cards (of five real projects) with placeholder media area, category,
+  description, tech pills, and a "View Project" link to the existing
+  `/projects/[slug]` route; a note plus "View All Projects" link to
+  `/projects` covers the remaining two.
+- `components/sections/engagement-section.tsx` — two `NeoCard` engagement
+  options (Quick Sprint, Full Build) with real pricing/scope copy and
+  CTAs to `/contact`. No interactive calculator.
+- `components/sections/cta-section.tsx` — final conversion section on an
+  accent-colored background with the `scanlines` utility for texture.
 
 ## Completed Features
 
-- Next.js + TypeScript + Tailwind CSS v4 project initialized in the
-  repository root (no nested project folder).
-- Dark, retro-desktop-based semantic color token system defined once in
-  `app/globals.css` (`background`, `foreground`, `surface`, `border`,
-  `accent`, `accent-secondary`, `muted`, `focus`) plus the raw brand
-  palette, all registered as Tailwind utilities via `@theme`.
-- Typography: Space Grotesk for headings/body, VT323 reserved for
-  system/retro labels only — never body copy.
-- Global style foundation: selection styling, visible keyboard focus
-  (`:focus-visible`), responsive `container-app` utility, opt-in `bg-grid`
-  and `scanlines` utilities (neither applied globally), neo-brutalist
-  border/shadow utilities, `prefers-reduced-motion` support.
-- Six reusable UI primitives (above), all typed, all accessible.
-- Site-wide layout shell (Navbar + Footer) wired into the root layout.
-- Route foundation for all six required routes plus `not-found`.
-- Centralized typed site configuration (`data/site-config.ts`) with real
-  identity data and an intentionally empty `socials` array.
+- Full homepage composed in `app/page.tsx` from `RetroHero` +  six section
+  components, in the required order: Hero (with integrated trust/stats),
+  About, Services, Skills, Featured Projects, Engagement, Final CTA.
+- All copy uses the real information provided (name, role, experience,
+  stats, service descriptions, project names/descriptions, engagement
+  pricing) — no fabricated clients, revenue, testimonials, or URLs.
+- Homepage is responsive from 320px through desktop; verified via
+  Playwright screenshots at 375px and 1440px, plus a manual mobile-nav
+  interaction check.
+- Accessibility: semantic heading order (`h1` in hero, `h2` per section,
+  `h3` per card), all CTAs are real `<a>`/`<button>` elements (no
+  clickable divs), decorative icons/dots are `aria-hidden`, keyboard
+  focus rings inherited from Phase 1 primitives, motion respects
+  `prefers-reduced-motion`.
+- Performance: only `RetroHero` is a client component; all six section
+  components and `app/page.tsx` are server components with no client JS.
 
 ## Architecture Decisions
 
-- **Dark theme as the single base theme**, not a light/dark toggle. The
-  approved palette (CRT green, cyber yellow, hot pink, etc.) is designed to
-  pop against a dark surface; a toggle was not requested and would add
-  scope beyond Phase 1.
-- **No `clsx`/`tailwind-merge`.** A minimal local `cn()` in `lib/utils.ts`
-  covers the current need (joining conditional class strings) without
-  adding dependencies not on the approved list.
-- **`neoButtonClasses` extracted from `NeoButton`.** Needed so `next/link`
-  CTAs can render with identical button styling without invalid
-  `<a>`-inside-`<button>` HTML nesting.
-- **Server components by default.** `NeoCard`, `RetroWindow`, `TechBadge`,
-  and `Footer` have no interactivity and ship no client JS. `Navbar`,
-  `Toggle`, and `Modal` are `"use client"` because they hold state or use
-  browser-only APIs (portal, focus management).
-- **Scaffolding workaround:** `create-next-app` refuses to run in a
-  directory whose name contains uppercase letters (`PersonalPortfolio`).
-  The app was scaffolded into a temporary lowercase-named subfolder, then
-  its contents were moved into the repository root and the temp folder
-  removed. No nested project directory or second Git repository was
-  created.
-- **`AGENTS.md` / `CLAUDE.md` at the repo root** are auto-generated by
-  Next.js 16 itself (`next dev`/`next build` regenerate the
-  `nextjs-agent-rules` block) and are committed as framework output, not
-  authored project documentation.
+- **Featured-project data lives in `projects-section.tsx`, not
+  `data/projects.ts`.** Phase 3 owns the real project data architecture;
+  inventing that shape now risked conflicting with Phase 3's design.
+- **`SectionHeading` extracted as a shared component.** Six sections
+  needed an identical eyebrow/title/description pattern; duplicating that
+  markup six times would have been worse than one small, justified
+  addition beyond the original file list.
+- **Trust/Quick Stats integrated into the hero**, not a standalone
+  section file. The target architecture's `components/sections/` list
+  did not include a stats section, and the brief allowed "immediately
+  after or integrated with the hero."
+- **Only the hero is a client component.** Framer Motion is scoped to
+  `RetroHero`; every other new section is a server component using CSS
+  transitions for hover states, keeping the homepage close to zero added
+  client JS beyond the hero and existing Navbar/Modal/Toggle.
+- **`MotionConfig reducedMotion="user"` + `useReducedMotion`.** CSS-level
+  `prefers-reduced-motion` handling from Phase 1 doesn't reach
+  JS-driven Framer Motion transforms, so the hero explicitly checks
+  reduced-motion before starting its infinite float loops.
+- **View Project CTAs link to the real `/projects/[slug]` route** instead
+  of a disabled button, since that route already exists and renders a
+  placeholder — linking to it is not a fabricated destination.
+- **README.md encoding bug found and fixed.** The file had reverted to
+  UTF-16 on disk (visible as a binary diff in Phase 1's commit); Phase 2
+  rewrote it via a direct UTF-8 heredoc and verified with `file
+  README.md` before committing. Worth checking again if README.md ever
+  shows as a binary diff.
 
 ## Known Issues
 
-- No automated tests exist yet (none were in scope for Phase 1).
-- `public/` is currently empty; default `create-next-app` sample SVGs were
-  removed as unused. Real image assets will be added when the sections
-  that need them are built.
-- Favicon is still the default `create-next-app` icon; replacing it was
-  out of scope for this phase.
-- All page content is placeholder text, by design — not a defect.
+- No automated tests exist yet (none were in scope for Phase 2).
+- Project preview tech-stack pills for ElectroTrans Solutions, Sundown
+  Studios, and Teaching Institute Portal use Anmol's general stack
+  (React, Tailwind CSS, Framer Motion, Node.js) as reasonable
+  representative tags, since specific per-project stacks weren't provided
+  for those three. Only The-Creation-Edit and the Property Dealer Web App
+  had explicit stacks given. Revisit in Phase 3 if exact stacks differ.
+- `public/` is still empty; all project media uses a placeholder "MEDIA
+  COMING SOON" treatment pending real assets.
+- Favicon is still the Next.js default.
 
 ## Next Planned Phase
 
-Phase 2 — Core Homepage
+Phase 3 — Project Showcase and Dynamic Project Architecture
 
 (Not started. Do not begin without explicit instruction.)
 
@@ -206,6 +239,14 @@ Phase 2 — Core Homepage
   metadata, and system/terminal UI — never body paragraphs.
 - `bg-grid` and `scanlines` are opt-in utilities; do not apply either
   globally or make them continuous/expensive.
-- Respect `prefers-reduced-motion` in any new Framer Motion usage.
+- Respect `prefers-reduced-motion` in any new Framer Motion usage — use
+  `useReducedMotion` for JS-driven loops, not just CSS.
+- When Phase 3 introduces `data/projects.ts` / `lib/projects.ts` /
+  `types/project.ts`, migrate the featured-project data currently local
+  to `projects-section.tsx` into that architecture rather than
+  maintaining two sources of project data.
+- Before committing any Markdown file, verify its encoding with
+  `file <path>` — this repo has hit a UTF-16-on-disk issue with
+  README.md before.
 - Update this file and `README.md` at the end of every phase so they stay
   accurate — do not let them describe unimplemented features as done.
