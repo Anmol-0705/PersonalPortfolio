@@ -7,21 +7,22 @@ modern, premium foundation.
 
 ## Status
 
-**Phase 3 — Dynamic Project Showcase: Complete.**
+**Phase 4 — Engagement Selector and Conversion Flow: Complete.**
 
-The homepage, the full `/projects` listing, and dynamic `/projects/[slug]`
-case study pages are all live and driven by a single typed project data
-source. `/about`, `/services`, and `/contact` remain minimal placeholders.
-The contact form and interactive features (terminal, engagement
-calculator, quote modal, etc.) are not yet built. See
-[`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for the full
-implementation record.
+The homepage, `/projects` and `/projects/[slug]`, `/services`, and
+`/contact` are all fully built. Visitors can configure a Quick Sprint or
+Full Build engagement, get honest (non-binding) guidance on scope, and
+submit a quote request or general message through a native contact form.
+**Real email/API delivery is not implemented yet** — submissions currently
+resolve through a documented client-side placeholder. `/about` remains a
+minimal placeholder. See [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md)
+for the full implementation record.
 
 ## Tech Stack
 
 - [Next.js](https://nextjs.org) (App Router) + React + TypeScript
 - [Tailwind CSS v4](https://tailwindcss.com)
-- [Framer Motion](https://motion.dev) — hero entrance/float animations
+- [Framer Motion](https://motion.dev) — hero and engagement-panel transitions
 - [Lucide React](https://lucide.dev) — icons
 - `next/font` — self-hosted Google Fonts (Space Grotesk, VT323)
 
@@ -51,59 +52,57 @@ The app runs at `http://localhost:3000`.
 app/                  Routes (App Router)
 components/
   layout/              Navbar, Footer
-  ui/                  Reusable design-system primitives
+  ui/                  Reusable design-system primitives (incl. Modal)
   hero/                Homepage hero
   sections/            Homepage content sections
   projects/            Project card, grid, media, and case study UI
-data/                  Typed static content (site config, project data)
-lib/                   Shared utilities and data-access functions
+  engagement/          Quick Sprint calculator, project estimator, tabs
+  contact/             Contact form, quote modal
+data/                  Typed static content (site config, projects, services)
+lib/                   Shared utilities and data-access/estimation logic
 types/                 Shared TypeScript types
 docs/                  Project documentation and handoff state
 ```
 
-Design tokens (colors, typography, neo-brutalist and retro utilities) live
-in [`app/globals.css`](app/globals.css). Project content lives in
-[`data/projects.ts`](data/projects.ts) and is the single source of truth
-for the homepage preview, `/projects`, and every `/projects/[slug]` page.
+Design tokens live in [`app/globals.css`](app/globals.css). Project
+content lives in [`data/projects.ts`](data/projects.ts). Engagement
+estimation logic lives in [`lib/quote-estimator.ts`](lib/quote-estimator.ts)
+and is deliberately kept out of components.
 
 ## Completed
 
 **Phase 1 — Foundation**
 
 - Next.js + TypeScript + Tailwind CSS v4 project setup
-- Global design system: semantic color tokens, typography, focus/selection
-  styling, container/grid/scanline utilities, reduced-motion support
-- Reusable UI primitives: `NeoButton`, `NeoCard`, `RetroWindow`, `TechBadge`,
-  `Toggle`, `Modal`
-- Site-wide `Navbar` and `Footer`
-- Route foundation: `/`, `/about`, `/projects`, `/projects/[slug]`,
-  `/services`, `/contact`, and a custom `not-found` page
-- Centralized, typed site configuration (`data/site-config.ts`)
+- Global design system, reusable UI primitives (`NeoButton`, `NeoCard`,
+  `RetroWindow`, `TechBadge`, `Toggle`, `Modal`), Navbar/Footer, route
+  foundation, typed site configuration
 
 **Phase 2 — Core Homepage**
 
-- Hero section with entrance/float animation, availability status, and
-  real stats (3+ years, 20+ projects, remote worldwide)
-- About, Services, Skills & Technology, Featured Projects, Engagement
-  Models, and Final CTA sections
-- All homepage content sourced from real project information — no
-  fabricated clients, metrics, or URLs
+- Full homepage: hero, about, services, skills, featured projects,
+  engagement preview, final CTA
 
 **Phase 3 — Dynamic Project Showcase**
 
-- Typed project data architecture: `types/project.ts` → `data/projects.ts`
-  → `lib/projects.ts` → UI components → routes
-- Reusable `ProjectCard`, `ProjectGrid`, `ProjectMedia`, and
-  `ProjectCaseStudy` components
-- Full `/projects` listing page and statically generated `/projects/[slug]`
-  case study pages for all five real projects, with a proper 404 for
-  unknown slugs
-- Homepage featured-projects section now reads from the same data source
-  instead of local duplicated data
-- Only verified technologies are shown per project; nothing about a
-  project's stack, clients, or outcomes is fabricated
+- Typed project data architecture (`types/project.ts` → `data/projects.ts`
+  → `lib/projects.ts`), reusable project UI, full `/projects` listing,
+  statically generated `/projects/[slug]` case studies
+
+**Phase 4 — Engagement Selector and Conversion Flow**
+
+- Quick Sprint calculator and Full Build project estimator, each backed by
+  transparent, deterministic estimation logic (`lib/quote-estimator.ts`) —
+  no binding prices, no fabricated math
+- Accessible `EngagementSelector` tabs connecting both flows, embedded on
+  the homepage engagement section
+- `QuickQuoteModal` that carries the user's selections into a native
+  `ContactForm` (no re-entering choices)
+- Real `/contact` page and minimally expanded `/services` page
+- Honest submission UX: no backend exists yet, and the UI says so
 
 ## Next Steps
 
-Phase 4 — Engagement Selector and Conversion Flow: the interactive
-engagement calculator, quote modal, and related conversion features.
+Phase 5 — Contact Delivery Integration and Retro Interaction Controls:
+real email/API delivery for the contact and quote flow, plus opt-in retro
+interaction controls (CRT toggle, cursor trail, sound).

@@ -1,11 +1,27 @@
-import Link from "next/link";
+"use client";
+
+import { useState } from "react";
 import { Zap, Blocks } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { NeoCard } from "@/components/ui/neo-card";
 import { neoButtonClasses } from "@/components/ui/neo-button";
 import { SectionHeading } from "@/components/sections/section-heading";
+import { EngagementSelector } from "@/components/engagement/engagement-selector";
+import type { EngagementType } from "@/types/quote";
 
-const engagementOptions = [
+type EngagementOption = {
+  type: EngagementType;
+  icon: LucideIcon;
+  label: string;
+  title: string;
+  details: string;
+  suitableFor: string[];
+  cta: string;
+};
+
+const engagementOptions: EngagementOption[] = [
   {
+    type: "quick-sprint",
     icon: Zap,
     label: "QUICK SPRINT",
     title: "Daily / Hourly Hire",
@@ -20,6 +36,7 @@ const engagementOptions = [
     cta: "Discuss a Sprint",
   },
   {
+    type: "full-build",
     icon: Blocks,
     label: "FULL BUILD",
     title: "End-to-End Project",
@@ -36,13 +53,15 @@ const engagementOptions = [
 ];
 
 export function EngagementSection() {
+  const [activeType, setActiveType] = useState<EngagementType | null>(null);
+
   return (
-    <section className="border-b-[3px] border-border bg-background">
+    <section id="engagement" className="border-b-[3px] border-border bg-background">
       <div className="container-app py-20 sm:py-28">
         <SectionHeading
           eyebrow="// 05 ENGAGEMENT"
           title="Ways to work together"
-          description="Final pricing always depends on scope. These are the two starting points — a quick sprint or a full build."
+          description="Final pricing always depends on scope. Pick a starting point below and configure the details."
         />
 
         <div className="mt-12 grid gap-6 sm:grid-cols-2">
@@ -78,16 +97,24 @@ export function EngagementSection() {
                   ))}
                 </ul>
 
-                <Link
-                  href="/contact"
+                <button
+                  type="button"
+                  onClick={() => setActiveType(option.type)}
+                  aria-expanded={activeType === option.type}
                   className={neoButtonClasses("primary", "mt-6")}
                 >
                   {option.cta}
-                </Link>
+                </button>
               </NeoCard>
             );
           })}
         </div>
+
+        {activeType && (
+          <div className="mt-12">
+            <EngagementSelector key={activeType} initialType={activeType} />
+          </div>
+        )}
       </div>
     </section>
   );

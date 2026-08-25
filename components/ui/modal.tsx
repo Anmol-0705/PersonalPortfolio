@@ -82,7 +82,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         aria-labelledby="modal-title"
         tabIndex={-1}
         className={cn(
-          "relative z-10 w-full max-w-lg neo-border-thick neo-shadow-accent bg-surface p-6 sm:p-8",
+          "relative z-10 max-h-[min(90dvh,calc(100dvh-2rem))] w-full max-w-lg overflow-y-auto neo-border-thick neo-shadow-accent bg-surface p-6 sm:p-8",
           className,
         )}
       >
