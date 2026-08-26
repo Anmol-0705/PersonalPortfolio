@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin/auth";
 import { describeError } from "@/lib/admin/errors";
+import { swapSortOrder } from "@/lib/admin/reorder";
 import { isServiceIconId } from "@/lib/service-icons";
 import type { ServiceInsert, ServiceUpdate } from "@/types/supabase";
 
@@ -40,6 +41,7 @@ function validate(input: ServiceFormInput): string | null {
 function revalidatePublicRoutes() {
   revalidatePath("/");
   revalidatePath("/services");
+  revalidatePath("/admin");
   revalidatePath("/admin/services");
 }
 
@@ -99,6 +101,45 @@ export async function updateService(
   if (error) {
     return { success: false, error: describeError("updateService", error, "Failed to update service.") };
   }
+
+  revalidatePublicRoutes();
+  return { success: true, id };
+}
+
+export async function moveService(
+  id: string,
+  direction: "up" | "down",
+): Promise<ActionResult> {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { success: false, error: "Not authorized." };
+
+  const { data: rows, error } = await supabase
+    .from("services")
+    .select("id, sort_order")
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (error || !rows) {
+    return {
+      success: false,
+      error: error
+        ? describeError("moveService", error, "Failed to reorder service.")
+        : "Failed to reorder service.",
+    };
+  }
+
+  const index = rows.findIndex((row) => row.id === id);
+  if (index === -1) return { success: false, error: "Service not found." };
+
+  const neighborIndex = direction === "up" ? index - 1 : index + 1;
+  const neighbor = rows[neighborIndex];
+  if (!neighbor) {
+    return { success: false, error: `Already at the ${direction === "up" ? "top" : "bottom"}.` };
+  }
+
+  const current = rows[index];
+  const result = await swapSortOrder(supabase, "services", "moveService", current, neighbor);
+  if (!result.success) return result;
 
   revalidatePublicRoutes();
   return { success: true, id };

@@ -37,8 +37,8 @@ export default async function EditProjectPage({
             No project exists for id <code>{id}</code>, or it could not be
             loaded. It may have been deleted, or the link may be stale.
           </p>
-          <Link href="/admin" className={neoButtonClasses("primary", "mt-4")}>
-            Back to Dashboard
+          <Link href="/admin/projects" className={neoButtonClasses("primary", "mt-4")}>
+            Back to Projects
           </Link>
         </NeoCard>
       </div>

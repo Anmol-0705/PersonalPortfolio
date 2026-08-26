@@ -11,6 +11,7 @@ import { ProjectImageUpload } from "@/components/admin/project-image-upload";
 import { slugify } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { uploadProjectImage } from "@/lib/supabase/storage";
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import {
   createProject,
   updateProject,
@@ -42,9 +43,12 @@ function toFormState(project?: Project): ProjectFormInput {
   };
 }
 
+const PROJECTS_LIST_HREF = "/admin/projects";
+
 export function ProjectForm({ mode, project }: ProjectFormProps) {
   const router = useRouter();
-  const [form, setForm] = useState<ProjectFormInput>(() => toFormState(project));
+  const [initialForm] = useState<ProjectFormInput>(() => toFormState(project));
+  const [form, setForm] = useState<ProjectFormInput>(initialForm);
   const [slugTouched, setSlugTouched] = useState(mode === "edit");
   const [error, setError] = useState<string | null>(null);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(
@@ -52,6 +56,17 @@ export function ProjectForm({ mode, project }: ProjectFormProps) {
   );
   const [stagedImageFile, setStagedImageFile] = useState<File | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [justSaved, setJustSaved] = useState(false);
+
+  // coverImageUrl is deliberately excluded: in edit mode it only
+  // changes via ProjectImageUpload's own immediate, already-persisted
+  // save, so it must never trigger an "unsaved changes" warning for
+  // this form. A staged (not-yet-uploaded) file in create mode is a
+  // real unsaved change, though — losing the selection is real data loss.
+  const isDirty =
+    !justSaved &&
+    (JSON.stringify(form) !== JSON.stringify(initialForm) || stagedImageFile !== null);
+  useUnsavedChangesWarning(isDirty);
 
   function updateField<K extends keyof ProjectFormInput>(
     key: K,
@@ -65,6 +80,13 @@ export function ProjectForm({ mode, project }: ProjectFormProps) {
     if (!slugTouched) {
       updateField("slug", slugify(value));
     }
+  }
+
+  function handleCancel() {
+    if (isDirty && !window.confirm("You have unsaved changes. Leave without saving?")) {
+      return;
+    }
+    router.push(PROJECTS_LIST_HREF);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -114,7 +136,8 @@ export function ProjectForm({ mode, project }: ProjectFormProps) {
         }
       }
 
-      router.push("/admin");
+      setJustSaved(true);
+      router.push(PROJECTS_LIST_HREF);
       router.refresh();
     });
   }
@@ -286,11 +309,7 @@ export function ProjectForm({ mode, project }: ProjectFormProps) {
         >
           {isPending ? "Saving..." : mode === "create" ? "Create Project" : "Save Changes"}
         </button>
-        <button
-          type="button"
-          onClick={() => router.push("/admin")}
-          className={neoButtonClasses("secondary")}
-        >
+        <button type="button" onClick={handleCancel} className={neoButtonClasses("secondary")}>
           Cancel
         </button>
       </div>

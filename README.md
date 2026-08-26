@@ -7,12 +7,13 @@ modern, premium foundation.
 
 ## Status
 
-**Phase 9 — Admin Skills and Services Management: code complete,
-pending your migration run.** The admin panel now also manages the
-homepage's tech stack and services list — no more editing TypeScript to
-change either. See [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for
-the full record, including the SQL migrations that still need to be run
-manually before this is live.
+**Phase 10 — Admin CMS Polish: code complete, pending your live
+verification.** The admin panel is now a real dashboard (real Supabase
+stats, recent projects) with search/filter, bulk actions, and accessible
+reordering for projects/skills/services, plus unsaved-changes warnings
+on every form. Phases 1–9 (Supabase-backed projects/skills/services,
+Storage-backed images, admin auth) are confirmed working live. See
+[`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for the full record.
 
 ## Tech Stack
 
@@ -64,20 +65,22 @@ The app runs at `http://localhost:3000`.
 ```
 app/
   api/contact/route.ts     Server-side contact/quote email delivery
-  admin/                   Private admin panel (login, dashboard, project/skill/service CRUD)
+  admin/                   Private admin panel: dashboard (/admin), then
+                            projects/skills/services list+CRUD+reorder
   ...                      Public routes (App Router)
 components/
   layout/, ui/, hero/, sections/, projects/, engagement/, contact/, retro/
   terminal/                Interactive command-line experience
-  admin/                   Admin-only UI (forms, dashboard controls)
+  admin/                   Admin-only UI (forms, lists, badges, bulk actions, reorder)
 data/                     projects.ts, skills.ts, services.ts kept as
                           historical seed reference only — not read at runtime
 lib/
   supabase/                Browser/server Supabase clients + session refresh
-  admin/                   Server Actions (project/skill/service CRUD) + shared auth/error helpers
+  admin/                   Server Actions (CRUD, bulk ops, reorder) + shared auth/error/validation helpers
   projects.ts, skills.ts, services.ts   Public reads — Supabase, RLS-scoped
   service-icons.ts, skill-categories.ts Controlled maps (icon ids, category colors)
-hooks/                    use-local-storage, use-crt-mode, use-cursor-trail, use-sound
+hooks/                    use-local-storage, use-crt-mode, use-cursor-trail, use-sound,
+                          use-unsaved-changes-warning
 types/                    Shared TypeScript types (incl. hand-written Supabase types)
 supabase/migrations/      SQL to run manually in the Supabase SQL editor
 docs/                     Project documentation and handoff state
@@ -138,13 +141,20 @@ and `public.services` tables (same RLS/`is_admin()` model as projects) and
 extended `/admin` with skills and services management, so the tech stack
 and services list are editable without touching code. The homepage
 Skills/Services sections and the terminal's `skills`/`services` commands
-now read from Supabase instead of static files.
+now read from Supabase instead of static files. **Confirmed working live.**
+
+**Phase 10 — Admin CMS Polish** · `/admin` is now a real dashboard (real
+project/skill/service stats, no fabricated metrics, a Recent Projects
+list, quick-create links) with the full project list moved to
+`/admin/projects`. Added search + status/featured filtering, accessible
+status badges (published/draft/featured/image), bulk publish/unpublish/
+feature/delete for projects, and keyboard-accessible Move Up/Down
+reordering for projects, skills (scoped to category), and services — no
+new dependency. Every admin form now warns before an unsaved change is
+lost, without ever warning about the cover image (which already saves
+independently).
 
 ## Next Steps
 
-1. **Run the SQL migrations** in `supabase/migrations/` (`0005` through
-   `0007`) via the Supabase SQL editor — see `docs/PROJECT_STATE.md` for
-   exact steps and verification queries. Until then, the homepage Skills
-   and Services sections render nothing (gracefully, not broken) and
-   `/admin/skills` and `/admin/services` show empty lists.
-2. A lightweight boot/loading sequence or deeper homepage polish pass.
+A lightweight boot/loading sequence or deeper homepage polish pass — no
+further phase has been started.

@@ -5,6 +5,7 @@ import { NeoCard } from "@/components/ui/neo-card";
 import { neoButtonClasses } from "@/components/ui/neo-button";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { DeleteSkillButton } from "@/components/admin/delete-skill-button";
+import { SkillMoveButtons } from "@/components/admin/skill-move-buttons";
 import { getAllSkills } from "@/lib/skills";
 
 export const metadata: Metadata = {
@@ -14,6 +15,22 @@ export const metadata: Metadata = {
 
 export default async function AdminSkillsPage() {
   const skills = await getAllSkills();
+
+  // Skills are grouped by category on the public site (see
+  // lib/skills.ts's groupByCategory) — "move up/down" is scoped to the
+  // skill's own category, so first/last is computed per-category here,
+  // not across the whole flat list.
+  const categoryIndex = new Map<string, number>();
+  for (const skill of skills) {
+    categoryIndex.set(skill.category, (categoryIndex.get(skill.category) ?? -1) + 1);
+  }
+  const seenPerCategory = new Map<string, number>();
+  const rows = skills.map((skill) => {
+    const total = categoryIndex.get(skill.category) ?? 0;
+    const position = seenPerCategory.get(skill.category) ?? 0;
+    seenPerCategory.set(skill.category, position + 1);
+    return { skill, canMoveUp: position > 0, canMoveDown: position < total };
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -31,19 +48,30 @@ export default async function AdminSkillsPage() {
           <p className="font-sans text-muted">
             No skills yet. Add your first one.
           </p>
+          <Link href="/admin/skills/new" className={neoButtonClasses("primary", "mt-4")}>
+            Add Skill
+          </Link>
         </NeoCard>
       ) : (
         <div className="flex flex-col gap-4">
-          {skills.map((skill) => (
+          {rows.map(({ skill, canMoveUp, canMoveDown }) => (
             <NeoCard
               key={skill.id}
               className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div>
-                <h2 className="font-sans text-lg font-bold">{skill.name}</h2>
-                <p className="mt-1 font-sans text-sm text-muted">
-                  {skill.category} · order {skill.order}
-                </p>
+              <div className="flex items-center gap-4">
+                <SkillMoveButtons
+                  id={skill.id}
+                  name={skill.name}
+                  canMoveUp={canMoveUp}
+                  canMoveDown={canMoveDown}
+                />
+                <div>
+                  <h2 className="font-sans text-lg font-bold">{skill.name}</h2>
+                  <p className="mt-1 font-sans text-sm text-muted">
+                    {skill.category} · order {skill.order}
+                  </p>
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">

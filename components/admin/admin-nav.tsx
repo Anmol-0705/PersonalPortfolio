@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export type AdminNavSection = "projects" | "skills" | "services";
+export type AdminNavSection = "dashboard" | "projects" | "skills" | "services";
 
 const LINKS: { section: AdminNavSection; href: string; label: string }[] = [
-  { section: "projects", href: "/admin", label: "Projects" },
+  { section: "dashboard", href: "/admin", label: "Dashboard" },
+  { section: "projects", href: "/admin/projects", label: "Projects" },
   { section: "skills", href: "/admin/skills", label: "Skills" },
   { section: "services", href: "/admin/services", label: "Services" },
 ];

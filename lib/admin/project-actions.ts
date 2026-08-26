@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { PROJECT_IMAGES_BUCKET, pathFromPublicUrl } from "@/lib/supabase/storage";
 import { requireAdmin } from "@/lib/admin/auth";
 import { describeError } from "@/lib/admin/errors";
+import { swapSortOrder } from "@/lib/admin/reorder";
+import { validateIdList } from "@/lib/admin/validation";
 import type { ProjectInsert, ProjectUpdate } from "@/types/supabase";
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -109,6 +111,7 @@ function revalidatePublicRoutes(slug?: string) {
   revalidatePath("/");
   revalidatePath("/projects");
   revalidatePath("/admin");
+  revalidatePath("/admin/projects");
   if (slug) revalidatePath(`/projects/${slug}`);
 }
 
@@ -248,6 +251,131 @@ export async function setProjectPublished(
 
   revalidatePublicRoutes(data.slug);
   return { success: true, id, slug: data.slug };
+}
+
+export async function moveProject(
+  id: string,
+  direction: "up" | "down",
+): Promise<ActionResult> {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { success: false, error: "Not authorized." };
+
+  const { data: rows, error } = await supabase
+    .from("projects")
+    .select("id, slug, sort_order")
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (error || !rows) {
+    return {
+      success: false,
+      error: error
+        ? describeError("moveProject", error, "Failed to reorder project.")
+        : "Failed to reorder project.",
+    };
+  }
+
+  const index = rows.findIndex((row) => row.id === id);
+  if (index === -1) return { success: false, error: "Project not found." };
+
+  const neighborIndex = direction === "up" ? index - 1 : index + 1;
+  const neighbor = rows[neighborIndex];
+  if (!neighbor) {
+    return { success: false, error: `Already at the ${direction === "up" ? "top" : "bottom"}.` };
+  }
+
+  const current = rows[index];
+  const result = await swapSortOrder(supabase, "projects", "moveProject", current, neighbor);
+  if (!result.success) return result;
+
+  revalidatePublicRoutes(current.slug);
+  revalidatePath(`/projects/${neighbor.slug}`);
+  return { success: true, id, slug: current.slug };
+}
+
+const BULK_ACTION_ERROR = "Failed to update the selected projects.";
+
+export type BulkActionResult =
+  | { success: true; count: number }
+  | { success: false; error: string };
+
+export async function bulkSetProjectsPublished(
+  ids: string[],
+  published: boolean,
+): Promise<BulkActionResult> {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { success: false, error: "Not authorized." };
+
+  const validationError = validateIdList(ids);
+  if (validationError) return { success: false, error: validationError };
+
+  const { data, error } = await supabase
+    .from("projects")
+    .update({ published, updated_at: new Date().toISOString() })
+    .in("id", ids)
+    .select("id");
+
+  if (error) {
+    return { success: false, error: describeError("bulkSetProjectsPublished", error, BULK_ACTION_ERROR) };
+  }
+
+  revalidatePublicRoutes();
+  return { success: true, count: data?.length ?? 0 };
+}
+
+export async function bulkSetProjectsFeatured(
+  ids: string[],
+  featured: boolean,
+): Promise<BulkActionResult> {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { success: false, error: "Not authorized." };
+
+  const validationError = validateIdList(ids);
+  if (validationError) return { success: false, error: validationError };
+
+  const { data, error } = await supabase
+    .from("projects")
+    .update({ featured, updated_at: new Date().toISOString() })
+    .in("id", ids)
+    .select("id");
+
+  if (error) {
+    return { success: false, error: describeError("bulkSetProjectsFeatured", error, BULK_ACTION_ERROR) };
+  }
+
+  revalidatePublicRoutes();
+  return { success: true, count: data?.length ?? 0 };
+}
+
+export async function bulkDeleteProjects(ids: string[]): Promise<BulkActionResult> {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { success: false, error: "Not authorized." };
+
+  const validationError = validateIdList(ids);
+  if (validationError) return { success: false, error: validationError };
+
+  const { data, error } = await supabase
+    .from("projects")
+    .delete()
+    .in("id", ids)
+    .select("slug, cover_image");
+
+  if (error) {
+    return { success: false, error: describeError("bulkDeleteProjects", error, "Failed to delete the selected projects.") };
+  }
+
+  for (const row of data ?? []) {
+    if (!row.cover_image) continue;
+    const path = pathFromPublicUrl(row.cover_image);
+    if (!path) continue;
+    const { error: storageError } = await supabase.storage.from(PROJECT_IMAGES_BUCKET).remove([path]);
+    if (storageError) {
+      console.error("[bulkDeleteProjects] failed to remove cover image:", storageError.message);
+    }
+  }
+
+  revalidatePublicRoutes();
+  return { success: true, count: data?.length ?? 0 };
 }
 
 export async function deleteProject(id: string): Promise<ActionResult> {

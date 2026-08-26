@@ -5,6 +5,7 @@ import { NeoCard } from "@/components/ui/neo-card";
 import { neoButtonClasses } from "@/components/ui/neo-button";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { DeleteServiceButton } from "@/components/admin/delete-service-button";
+import { ServiceMoveButtons } from "@/components/admin/service-move-buttons";
 import { serviceIconMap } from "@/lib/service-icons";
 import { getServices } from "@/lib/services";
 
@@ -32,17 +33,26 @@ export default async function AdminServicesPage() {
           <p className="font-sans text-muted">
             No services yet. Add your first one.
           </p>
+          <Link href="/admin/services/new" className={neoButtonClasses("primary", "mt-4")}>
+            Add Service
+          </Link>
         </NeoCard>
       ) : (
         <div className="flex flex-col gap-4">
-          {services.map((service) => {
+          {services.map((service, index) => {
             const Icon = serviceIconMap[service.iconId];
             return (
               <NeoCard
                 key={service.id}
                 className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
+                  <ServiceMoveButtons
+                    id={service.id}
+                    title={service.title}
+                    canMoveUp={index > 0}
+                    canMoveDown={index < services.length - 1}
+                  />
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center border-2 border-border bg-accent text-off-white">
                     <Icon className="h-5 w-5" aria-hidden="true" />
                   </span>

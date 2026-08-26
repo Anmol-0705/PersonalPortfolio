@@ -22,6 +22,7 @@ function mapRowToProject(row: ProjectRow): Project {
     testimonial: row.testimonial
       ? { quote: row.testimonial, author: row.testimonial_author ?? "" }
       : undefined,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -40,7 +41,12 @@ export async function getAllProjects(): Promise<Project[]> {
   const { data, error } = await supabase
     .from("projects")
     .select("*")
-    .order("sort_order", { ascending: true });
+    // sort_order alone isn't guaranteed unique (e.g. two projects
+    // created in quick succession could share a value); id is the
+    // deterministic tie-break so admin reorder ("move up/down") always
+    // matches the exact order shown, and public listings are stable.
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true });
 
   if (error) {
     console.error("[getAllProjects] Supabase query error:", error);
@@ -52,6 +58,22 @@ export async function getAllProjects(): Promise<Project[]> {
 export async function getFeaturedProjects(): Promise<Project[]> {
   const projects = await getAllProjects();
   return projects.filter((project) => project.featured);
+}
+
+/** Admin dashboard "Recent Projects" — most recently changed first. */
+export async function getRecentProjects(limit: number): Promise<Project[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*")
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("[getRecentProjects] Supabase query error:", error);
+    return [];
+  }
+  return (data ?? []).map(mapRowToProject);
 }
 
 export async function getProjectBySlug(slug: string): Promise<Project | undefined> {

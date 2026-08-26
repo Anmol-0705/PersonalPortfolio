@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin/auth";
 import { describeError } from "@/lib/admin/errors";
+import { swapSortOrder } from "@/lib/admin/reorder";
 import type { SkillInsert, SkillUpdate } from "@/types/supabase";
 
 export type ActionResult =
@@ -34,6 +35,7 @@ function validate(input: SkillFormInput): string | null {
 
 function revalidatePublicRoutes() {
   revalidatePath("/");
+  revalidatePath("/admin");
   revalidatePath("/admin/skills");
 }
 
@@ -91,6 +93,53 @@ export async function updateSkill(
   if (error) {
     return { success: false, error: describeError("updateSkill", error, "Failed to update skill.") };
   }
+
+  revalidatePublicRoutes();
+  return { success: true, id };
+}
+
+/**
+ * Skills are displayed publicly grouped by category (see
+ * lib/skills.ts's groupByCategory) — moving a skill "up/down" must stay
+ * within its own category's neighbors, not jump into an adjacent
+ * category's skill, or the reorder would silently reshuffle category
+ * grouping instead of just reordering within it.
+ */
+export async function moveSkill(
+  id: string,
+  direction: "up" | "down",
+): Promise<ActionResult> {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { success: false, error: "Not authorized." };
+
+  const { data: rows, error } = await supabase
+    .from("skills")
+    .select("id, category, sort_order")
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (error || !rows) {
+    return {
+      success: false,
+      error: error
+        ? describeError("moveSkill", error, "Failed to reorder skill.")
+        : "Failed to reorder skill.",
+    };
+  }
+
+  const current = rows.find((row) => row.id === id);
+  if (!current) return { success: false, error: "Skill not found." };
+
+  const sameCategory = rows.filter((row) => row.category === current.category);
+  const index = sameCategory.findIndex((row) => row.id === id);
+  const neighborIndex = direction === "up" ? index - 1 : index + 1;
+  const neighbor = sameCategory[neighborIndex];
+  if (!neighbor) {
+    return { success: false, error: `Already at the ${direction === "up" ? "top" : "bottom"} of this category.` };
+  }
+
+  const result = await swapSortOrder(supabase, "skills", "moveSkill", current, neighbor);
+  if (!result.success) return result;
 
   revalidatePublicRoutes();
   return { success: true, id };

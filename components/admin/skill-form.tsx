@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { NeoCard } from "@/components/ui/neo-card";
 import { neoButtonClasses } from "@/components/ui/neo-button";
 import { KNOWN_SKILL_CATEGORIES } from "@/lib/skill-categories";
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { createSkill, updateSkill } from "@/lib/admin/skill-actions";
 import type { SkillFormInput } from "@/lib/admin/skill-actions";
 import type { Skill } from "@/types/skill";
@@ -24,14 +25,24 @@ function toFormState(skill: Skill | undefined, nextSortOrder: number | undefined
 
 export function SkillForm({ mode, skill, nextSortOrder }: SkillFormProps) {
   const router = useRouter();
-  const [form, setForm] = useState<SkillFormInput>(() =>
-    toFormState(skill, nextSortOrder),
-  );
+  const [initialForm] = useState<SkillFormInput>(() => toFormState(skill, nextSortOrder));
+  const [form, setForm] = useState<SkillFormInput>(initialForm);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [justSaved, setJustSaved] = useState(false);
+
+  const isDirty = !justSaved && JSON.stringify(form) !== JSON.stringify(initialForm);
+  useUnsavedChangesWarning(isDirty);
 
   function updateField<K extends keyof SkillFormInput>(key: K, value: SkillFormInput[K]) {
     setForm((previous) => ({ ...previous, [key]: value }));
+  }
+
+  function handleCancel() {
+    if (isDirty && !window.confirm("You have unsaved changes. Leave without saving?")) {
+      return;
+    }
+    router.push("/admin/skills");
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -47,6 +58,7 @@ export function SkillForm({ mode, skill, nextSortOrder }: SkillFormProps) {
         return;
       }
 
+      setJustSaved(true);
       router.push("/admin/skills");
       router.refresh();
     });
@@ -105,11 +117,7 @@ export function SkillForm({ mode, skill, nextSortOrder }: SkillFormProps) {
         <button type="submit" disabled={isPending} className={neoButtonClasses("primary")}>
           {isPending ? "Saving..." : mode === "create" ? "Add Skill" : "Save Changes"}
         </button>
-        <button
-          type="button"
-          onClick={() => router.push("/admin/skills")}
-          className={neoButtonClasses("secondary")}
-        >
+        <button type="button" onClick={handleCancel} className={neoButtonClasses("secondary")}>
           Cancel
         </button>
       </div>

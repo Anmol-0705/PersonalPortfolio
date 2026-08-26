@@ -32,4 +32,6 @@ export type Project = {
   approach?: string;
   solution?: string;
   testimonial?: ProjectTestimonial;
+  /** ISO timestamp — used for admin "recently updated" ordering only. */
+  updatedAt: string;
 };

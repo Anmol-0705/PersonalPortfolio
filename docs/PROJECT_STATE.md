@@ -5,24 +5,20 @@ across development phases. Update it whenever a phase completes.
 
 ## Current Phase
 
-Phase 9 — Admin Skills and Services Management
+Phase 10 — Admin CMS Polish
 
 ## Phase Status
 
-**CODE IMPLEMENTED. DATABASE MIGRATIONS CREATED BUT NOT YET RUN.**
-
-`npm run lint` and `npm run build` both pass. Public-page graceful-empty
-behavior was verified live against the actual dev server with the
-`skills`/`services` tables genuinely not existing yet (see "Live
-Verification Performed" below) — that is the strongest possible test of
-the zero-rows case, since the tables don't exist at all right now.
-
-What was **not** live-tested, because the three new migrations
-(`0005`–`0007`) have not been run yet: admin create/edit/delete for
-skills and services, and the populated (non-empty) rendering of the
-public Skills/Services sections and the terminal's `skills`/`services`
-commands. These depend on the tables existing and cannot be exercised
-until the site owner runs the migrations below.
+**CODE IMPLEMENTED, VALIDATED. LIVE CLICK-THROUGH NOT YET PERFORMED BY
+THIS SESSION.** No database migration is required for this phase — it
+builds entirely on the `projects`/`skills`/`services` schema already in
+place (Phases 7–9, confirmed live by the site owner before this phase
+started). `npm run lint` and `npm run build` both pass. Route-level
+smoke testing (below) was performed against the live dev server; full
+admin interaction (search/filter, bulk actions, reordering, unsaved-changes
+prompts) needs the site owner's follow-up, as this session has no
+browser tool or admin credentials — the same limitation stated in every
+prior phase's record.
 
 ## Last Updated
 
@@ -34,27 +30,141 @@ main
 
 ## Live Verification Performed (this session)
 
-With the dev server running and `public.skills`/`public.services` not
-yet created:
+Against the site owner's own running dev server (confirmed already
+migrated through Phase 9):
 
-- `GET /` → `200`, page renders, Skills/Services sections simply absent
-  (not broken, not an error page).
-- `GET /services` → `200`, page renders without its services grid.
-- `GET /admin`, `/admin/skills`, `/admin/services`, `/admin/skills/new`
-  (unauthenticated) → `307` redirect to `/admin/login`, consistent with
-  existing project routes.
-- `GET /projects`, `/contact`, `/about` → `200`, unaffected.
-- Server log confirmed the actual error being handled gracefully:
-  `[getAllSkills] Supabase query error: { code: 'PGRST205', message:
-  "Could not find the table 'public.skills' in the schema cache" }` —
-  logged, not swallowed, and the page still rendered correctly.
+- `GET /`, `/projects`, `/services`, `/contact`, `/about` → `200`,
+  unaffected by this phase's admin-only changes.
+- `GET /admin`, `/admin/projects`, `/admin/skills`, `/admin/services`,
+  `/admin/projects/new` (unauthenticated) → `307` redirect to
+  `/admin/login`, including the new `/admin/projects` route.
+- `npm run build` confirms `/admin/projects` now exists as its own
+  route alongside the existing six.
 
-This confirms the "zero skills / zero services" requirement and the
-no-crash requirement empirically, not just by code review. Admin CRUD
-and populated-state rendering still need the site owner's follow-up
-testing after running the migrations (see "Migration Handoff" below).
+Not independently exercised (needs the site owner, same limitation as
+every prior phase): search/filter combinations, bulk publish/unpublish/
+feature/delete, Move Up/Down reordering for all three resource types,
+and the unsaved-changes confirm/`beforeunload` prompts.
 
-## Phase 9 Summary
+## Phase 10 Summary
+
+`/admin` changed from *being* the project list to a real overview
+dashboard; the full, searchable/filterable/bulk-capable project list
+moved to a new `/admin/projects`. `AdminNav`'s "Projects" link and every
+internal redirect (`ProjectForm`'s Cancel/save-success, the not-found
+card, `revalidatePath` calls) were updated to point at the new location
+— nothing was left pointing at the old one.
+
+### Dashboard (`/admin`)
+
+Real Supabase-derived numbers only — total/published/draft/featured
+projects, projects with/without a cover image, total skills + distinct
+category count, total services — no fabricated analytics, visitors, or
+revenue. A "Recent Projects" section shows the 5 most recently updated
+projects (`getRecentProjects()`, new in `lib/projects.ts`, ordered by
+`updated_at desc`) with a thumbnail, status/featured badges, and an Edit
+link. Quick-create links for all three resource types.
+
+### Search, Filter, Status Badges (`/admin/projects`)
+
+Client-side filtering (`components/admin/projects-admin-list.tsx`) —
+chosen over URL-driven filtering because the full project list is
+already fetched server-side in one request (portfolio-scale data, no
+pagination need), so adding query-param plumbing would be pure overhead
+for no benefit here. Search matches title/slug/category; status
+(all/published/draft) and featured (all/featured/not-featured) filters
+combine with search and each other. `components/admin/status-badges.tsx`
+provides `PublishedBadge`/`FeaturedBadge`/`ImageStatusBadge` — each an
+icon + text label (never color alone).
+
+### Bulk Actions
+
+Checkbox per row + "select all (filtered)" + a bulk action bar
+(publish/unpublish/mark featured/remove featured/delete-with-confirmation)
+that appears only when ≥1 row is selected. Server-side
+(`bulkSetProjectsPublished`/`bulkSetProjectsFeatured`/`bulkDeleteProjects`
+in `lib/admin/project-actions.ts`): each re-runs `requireAdmin()`
+independently, validates every id is a well-formed UUID
+(`lib/admin/validation.ts`) before touching the database, and scopes
+every mutation with `.in("id", ids)` — RLS still applies underneath
+regardless. No service-role key. Bulk delete cleans up each deleted
+project's Storage cover image, same as single delete.
+
+### Reordering
+
+No drag-and-drop dependency added (none existed; none was needed) —
+`components/admin/move-buttons.tsx` renders two icon buttons
+(Move Up/Move Down), natively `disabled` (not just visually) at either
+end of the relevant list, with descriptive `aria-label`s
+(`"Move {name} up"`). `lib/admin/reorder.ts`'s `swapSortOrder()` is a
+shared two-update swap used by all three new Server Actions
+(`moveProject`, `moveSkill`, `moveService`) — each re-checks
+`requireAdmin()`, re-fetches the deterministically-ordered list
+server-side (never trusts a client-supplied position), and rejects the
+move if the target has no neighbor in that direction.
+
+**Skills are scoped to their own category** (`moveSkill`) — since the
+public site groups skills by category (`lib/skills.ts`'s
+`groupByCategory`), "move up" finds the previous skill *in the same
+category* by `sort_order`, not the previous skill overall, so reordering
+never silently reshuffles which category a skill's neighbors imply it
+belongs near. Projects and services (`moveProject`/`moveService`) have
+no such grouping and move within the full list.
+
+`getAllProjects()` gained a secondary `.order("id")` tie-break (skills/
+services already had one, from Phase 9) — needed so the order the admin
+sees always exactly matches the order `moveProject` computes positions
+against; without it, two projects sharing a `sort_order` value could
+render in a different order than the reorder logic assumed.
+
+### Unsaved Changes Protection
+
+`hooks/use-unsaved-changes-warning.ts` — a `beforeunload` listener,
+added only while a form is dirty, for tab close/refresh. Each of the
+three forms (`project-form.tsx`, `skill-form.tsx`, `service-form.tsx`)
+snapshots its initial state once and compares via `JSON.stringify`
+against current state to compute `isDirty`; the Cancel button
+`window.confirm()`s before navigating away when dirty. **Scope note:**
+this covers tab close/refresh (`beforeunload`) and each form's own
+Cancel button — it does not intercept clicks on `AdminNav` or the
+browser back button, which would require converting `AdminNav` to a
+client component with a shared dirty-state context. That was judged out
+of proportion for this phase given the Cancel button and
+`beforeunload` already cover the two most common "leave without saving"
+paths; see Known Limitations.
+
+`ProjectForm`'s dirty check deliberately excludes `coverImageUrl` — in
+edit mode that value only changes via `ProjectImageUpload`'s own
+already-persisted live save (Phase 8 architecture), so including it
+would falsely warn about a change that's already safely in the
+database. A *staged* (not-yet-uploaded) file in create mode is included,
+since losing that selection on navigation would be real, actual data
+loss.
+
+### Empty States
+
+"No projects yet" (zero rows) vs. "No projects match these filters"
+(zero after filtering) are now distinct messages, each with the
+correct next action (Create Project vs. Clear Filters) — previously
+there was only one generic empty message and no filtering to be empty
+*from*. Same create-CTA addition for the skills/services empty states.
+
+### Loading / Mutation Feedback
+
+Bulk actions and reordering use `useTransition` (same pattern as every
+existing single-item action) so buttons disable and show pending state
+during the request, preventing duplicate submissions. A bulk action
+shows a brief inline success message (`role="status"`) or error
+(`role="alert"`) — no toast library added (none existed; brief says not
+to add one automatically), consistent with the project's existing
+inline-message pattern throughout `/admin`.
+
+## Historical: Phase 9 — Admin Skills and Services Management
+
+The sections below are the unmodified record from when Phase 9 closed
+out, confirmed working live by the site owner before this phase began.
+
+### Phase 9 Summary
 
 Added `public.skills` and `public.services` — the third and fourth
 Supabase-backed content types alongside `public.projects`, using the
@@ -243,7 +353,7 @@ auth gate as `/admin` and `/admin/projects/...`.
   `TerminalCommandContext` and fetched server-side in `app/page.tsx`,
   the same way `skillGroups`/`services` were added in this phase.
 
-## Migration Handoff — Phase 9
+### Migration Handoff — Phase 9 (already run — kept for reference)
 
 **Run these three, in this exact order, in the Supabase SQL editor:**
 
@@ -553,23 +663,34 @@ NAT64 false positive (see Root Cause above). Alt text
 
 ## Known Limitations
 
+**Phase 10:**
+
+- Unsaved-changes protection covers `beforeunload` (tab close/refresh)
+  and each form's own Cancel button, but not `AdminNav` link clicks or
+  the browser back button — see "Unsaved Changes Protection" above for
+  why, and reconsider if this proves to matter in practice.
+- All Phase 10 admin interactions (search/filter, bulk actions,
+  reordering for all three resource types, unsaved-changes prompts)
+  need the site owner's live click-through — this session has no
+  browser tool or credentials, consistent with every prior phase.
+- Bulk action feedback is a plain inline message, not a toast — no
+  notification system existed to reuse, and the brief said not to add
+  one automatically.
+- Client-side filtering on `/admin/projects` re-fetches nothing extra
+  (all projects were already loaded for the page) but doesn't scale
+  indefinitely — fine at portfolio scale, would need URL-driven
+  server-side filtering/pagination if the project count grew into the
+  hundreds.
+
 **Phase 9:**
 
-- **The three new migrations have not been run yet** — until they are,
-  `/admin/skills` and `/admin/services` show empty lists (correctly, not
-  broken), and the public Skills/Services sections and `/services`
-  render nothing. See "Migration Handoff — Phase 9" above.
-- Admin create/edit/delete for skills and services, and populated-state
-  public rendering, have **not** been live-tested by this session (no
-  browser tool, tables don't exist yet). Needs the site owner's
-  follow-up after migrating.
 - Skill categories are free text with a `<datalist>` of the four known
   categories as suggestions, not a hard-constrained enum — intentional
   (categories are just a label, not a security concern, unlike icons),
   but means a typo'd category creates its own group with the fallback
   badge color rather than erroring.
-- No automated test suite covering the new Server Actions (consistent
-  with the rest of the project — none exist anywhere yet).
+- No automated test suite covering the Server Actions (consistent with
+  the rest of the project — none exist anywhere yet).
 
 **Carried over from Phase 7/8:**
 
@@ -593,10 +714,10 @@ NAT64 false positive (see Root Cause above). Alt text
 
 ## Next Phase
 
-Immediate: the site owner runs the three Phase 9 migrations and verifies
-admin skill/service CRUD and public rendering end to end (see "Migration
-Handoff" above) — this is verification of already-implemented code, not
-new development.
+Immediate: the site owner click-tests Phase 10's admin UX end to end
+(search/filter, bulk actions, reordering for projects/skills/services,
+unsaved-changes prompts) and reports back — this is verification of
+already-implemented code, not new development.
 
 Beyond that, no specific next phase has been assigned. Candidates still
 open: a lightweight boot/loading sequence, deeper homepage content/SEO

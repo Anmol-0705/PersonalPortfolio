@@ -11,6 +11,7 @@ import {
   serviceIconLabels,
   serviceIconMap,
 } from "@/lib/service-icons";
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { createService, updateService } from "@/lib/admin/service-actions";
 import type { ServiceFormInput } from "@/lib/admin/service-actions";
 import type { Service } from "@/types/service";
@@ -33,14 +34,24 @@ function toFormState(
 
 export function ServiceForm({ mode, service, nextSortOrder }: ServiceFormProps) {
   const router = useRouter();
-  const [form, setForm] = useState<ServiceFormInput>(() =>
-    toFormState(service, nextSortOrder),
-  );
+  const [initialForm] = useState<ServiceFormInput>(() => toFormState(service, nextSortOrder));
+  const [form, setForm] = useState<ServiceFormInput>(initialForm);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [justSaved, setJustSaved] = useState(false);
+
+  const isDirty = !justSaved && JSON.stringify(form) !== JSON.stringify(initialForm);
+  useUnsavedChangesWarning(isDirty);
 
   function updateField<K extends keyof ServiceFormInput>(key: K, value: ServiceFormInput[K]) {
     setForm((previous) => ({ ...previous, [key]: value }));
+  }
+
+  function handleCancel() {
+    if (isDirty && !window.confirm("You have unsaved changes. Leave without saving?")) {
+      return;
+    }
+    router.push("/admin/services");
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -56,6 +67,7 @@ export function ServiceForm({ mode, service, nextSortOrder }: ServiceFormProps) 
         return;
       }
 
+      setJustSaved(true);
       router.push("/admin/services");
       router.refresh();
     });
@@ -136,11 +148,7 @@ export function ServiceForm({ mode, service, nextSortOrder }: ServiceFormProps) 
         <button type="submit" disabled={isPending} className={neoButtonClasses("primary")}>
           {isPending ? "Saving..." : mode === "create" ? "Add Service" : "Save Changes"}
         </button>
-        <button
-          type="button"
-          onClick={() => router.push("/admin/services")}
-          className={neoButtonClasses("secondary")}
-        >
+        <button type="button" onClick={handleCancel} className={neoButtonClasses("secondary")}>
           Cancel
         </button>
       </div>
