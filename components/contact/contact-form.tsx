@@ -156,7 +156,7 @@ export function ContactForm({ context, initialMessage }: ContactFormProps) {
           className="mt-2 w-full neo-border bg-background px-3 py-2 font-sans focus-visible:[outline:3px_solid_var(--color-focus)] focus-visible:outline-offset-2"
         />
         {errors.name && (
-          <p id="contact-name-error" className="mt-1 font-sans text-sm text-hot-pink">
+          <p id="contact-name-error" role="alert" className="mt-1 font-sans text-sm text-hot-pink">
             {errors.name}
           </p>
         )}
@@ -180,7 +180,7 @@ export function ContactForm({ context, initialMessage }: ContactFormProps) {
           className="mt-2 w-full neo-border bg-background px-3 py-2 font-sans focus-visible:[outline:3px_solid_var(--color-focus)] focus-visible:outline-offset-2"
         />
         {errors.email && (
-          <p id="contact-email-error" className="mt-1 font-sans text-sm text-hot-pink">
+          <p id="contact-email-error" role="alert" className="mt-1 font-sans text-sm text-hot-pink">
             {errors.email}
           </p>
         )}
@@ -220,7 +220,7 @@ export function ContactForm({ context, initialMessage }: ContactFormProps) {
           className="mt-2 w-full neo-border bg-background px-3 py-2 font-sans focus-visible:[outline:3px_solid_var(--color-focus)] focus-visible:outline-offset-2"
         />
         {errors.message && (
-          <p id="contact-message-error" className="mt-1 font-sans text-sm text-hot-pink">
+          <p id="contact-message-error" role="alert" className="mt-1 font-sans text-sm text-hot-pink">
             {errors.message}
           </p>
         )}

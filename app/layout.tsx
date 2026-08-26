@@ -6,6 +6,7 @@ import { RetroPreferencesProvider } from "@/components/retro/retro-preferences-p
 import { RetroControls } from "@/components/retro/retro-controls";
 import { CursorTrail } from "@/components/retro/cursor-trail";
 import { siteConfig } from "@/data/site-config";
+import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -19,9 +20,30 @@ const vt323 = VT323({
   subsets: ["latin"],
 });
 
+const title = `${siteConfig.name} — ${siteConfig.role}`;
+const description = `Portfolio of ${siteConfig.name}, a ${siteConfig.role} with ${siteConfig.experience} of experience and ${siteConfig.projectsDelivered} projects delivered. ${siteConfig.availability}.`;
+
 export const metadata: Metadata = {
-  title: `${siteConfig.name} — ${siteConfig.role}`,
-  description: `Portfolio of ${siteConfig.name}, a ${siteConfig.role} with ${siteConfig.experience} of experience and ${siteConfig.projectsDelivered} projects delivered. ${siteConfig.availability}.`,
+  metadataBase: new URL(getSiteUrl()),
+  // No `title.template`: every route already sets its own full title
+  // (e.g. `About — ${siteConfig.name}`) — a template would double-append
+  // the suffix on top of those. This `title` is only the fallback for a
+  // route that sets none (currently none do).
+  title,
+  description,
+  alternates: { canonical: "/" },
+  openGraph: {
+    title,
+    description,
+    siteName: siteConfig.name,
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

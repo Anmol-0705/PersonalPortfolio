@@ -4,6 +4,8 @@ import { siteConfig } from "@/data/site-config";
 
 export const metadata: Metadata = {
   title: `About — ${siteConfig.name}`,
+  description: `About ${siteConfig.name}, a ${siteConfig.role} based in ${siteConfig.location} with ${siteConfig.experience} of experience.`,
+  alternates: { canonical: "/about" },
 };
 
 export default function AboutPage() {

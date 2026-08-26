@@ -9,6 +9,7 @@ import { siteConfig } from "@/data/site-config";
 export const metadata: Metadata = {
   title: `Services — ${siteConfig.name}`,
   description: `Services offered by ${siteConfig.name}, ${siteConfig.role}.`,
+  alternates: { canonical: "/services" },
 };
 
 export default async function ServicesPage() {

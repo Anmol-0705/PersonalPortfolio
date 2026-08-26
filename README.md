@@ -7,18 +7,21 @@ modern, premium foundation.
 
 ## Status
 
-**Phase 11 — Unsaved Changes Navigation Guard: code complete, pending
-your live verification.** Every admin form (project/skill/service,
-create and edit) now warns before an unsaved change is lost via
-`AdminNav` link clicks, the browser back/forward buttons, and the
-Cancel button — not just tab close/refresh — using a shared
-`UnsavedChangesProvider` and a reusable `useDirtyFormGuard` hook. See
-"Unsaved Changes Protection" in [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md)
-for exactly what's guarded and the App Router back/forward limitation.
-Phases 1–10 (Supabase-backed projects/skills/services, Storage-backed
-images, admin auth, dashboard/search/bulk actions/reordering) are
-confirmed working live. See `docs/PROJECT_STATE.md` for the full
-record.
+**Phase 12 — Production Metadata and Portfolio Polish: code complete,
+pending your live/production verification.** The site now has a real
+metadata architecture (per-route titles/descriptions, Open Graph +
+Twitter cards, canonical URLs, dynamic project metadata using real
+Supabase data), a code-generated favicon/app-icon/OG-image identity
+(replacing the default Next.js favicon), `robots.txt` + `sitemap.xml`
+(published projects only, admin routes disallowed), friendly public
+error/404 boundaries, and one confirmed, fixed correctness bug: an
+unknown project URL was returning HTTP 200 instead of 404 ("soft
+404") — root-caused and fixed, see "Phase 12" in
+[`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for the full story
+and exactly what still needs your production configuration (the real
+site URL, in particular). Phases 1–11 (Supabase-backed content, admin
+CMS, unsaved-changes navigation guard) are confirmed working live. See
+`docs/PROJECT_STATE.md` for the full record.
 
 ## Tech Stack
 
@@ -42,6 +45,7 @@ Copy `.env.example` to `.env.local` and fill in real values (never commit
 | `RESEND_API_KEY`                         | Resend API key — required for email delivery                |
 | `RESEND_FROM_EMAIL`                      | Verified sender address (or Resend's sandbox sender)         |
 | `CONTACT_TO_EMAIL`                       | Inbox that receives contact/quote requests                   |
+| `NEXT_PUBLIC_SITE_URL`                   | Real production URL — used for `metadataBase`, OG/Twitter image URLs, canonical links, sitemap, and robots.txt. Falls back to `http://localhost:3000` if unset — **must** be set in production. |
 
 The Supabase secret/service-role key is intentionally never used by this
 app — every admin operation runs through the logged-in user's session,
@@ -72,6 +76,10 @@ app/
   api/contact/route.ts     Server-side contact/quote email delivery
   admin/                   Private admin panel: dashboard (/admin), then
                             projects/skills/services list+CRUD+reorder
+  sitemap.ts, robots.ts    Generated sitemap.xml / robots.txt (published projects only)
+  icon.svg, apple-icon.tsx, opengraph-image.tsx, twitter-image.tsx, manifest.ts
+                            Site identity: favicon, app icon, social share image
+  error.tsx, global-error.tsx, not-found.tsx   Public error/404 boundaries
   ...                      Public routes (App Router)
 components/
   layout/, ui/, hero/, sections/, projects/, engagement/, contact/, retro/
@@ -85,6 +93,8 @@ lib/
   admin/                   Server Actions (CRUD, bulk ops, reorder) + shared auth/error/validation helpers
   projects.ts, skills.ts, services.ts   Public reads — Supabase, RLS-scoped
   service-icons.ts, skill-categories.ts Controlled maps (icon ids, category colors)
+  site-url.ts              NEXT_PUBLIC_SITE_URL with a local-dev fallback
+  og-image.tsx             Shared JSX for the default OG/Twitter share image
 hooks/                    use-local-storage, use-crt-mode, use-cursor-trail, use-sound,
                           use-unsaved-changes-warning (beforeunload),
                           use-dirty-form-guard (full admin nav + back/forward guard)
@@ -178,7 +188,33 @@ confirmation — `AdminNav`, back/forward, and each form's Cancel button
 — now goes through one shared, accessible `Modal`-based dialog instead
 of `window.confirm()`. No new dependency, no database migration.
 
+**Phase 12 — Production Metadata and Portfolio Polish** · Root layout
+gained `metadataBase` (from the new `NEXT_PUBLIC_SITE_URL`, see above),
+site-wide Open Graph/Twitter defaults, and a canonical URL; every
+public page already had its own title/description and now also sets
+its own canonical link. The project case study page's `generateMetadata`
+now sets Open Graph/Twitter data from the real project (title, short
+description, and the actual cover image when one exists — falling back
+to the site-wide default share image when it doesn't; never fabricated).
+Replaced the default Next.js favicon with a code-generated retro "AK"
+identity (`icon.svg`, `apple-icon.tsx`, `opengraph-image.tsx`,
+`twitter-image.tsx` via `next/og`'s bundled `ImageResponse` — no new
+dependency) plus a `manifest.ts` web app manifest. Added `app/sitemap.ts`
+(published projects only, defense-in-depth filtered even though RLS
+already scopes this) and `app/robots.ts` (disallows `/admin`). Added
+`app/error.tsx` (friendly public error boundary, reused `Modal`-free
+`RetroWindow`) and `app/global-error.tsx` (dependency-free fallback for
+a root-layout-level failure). Fixed one real, confirmed bug found while
+validating this phase — see "Root Cause: Soft 404 on Unknown Projects"
+in `docs/PROJECT_STATE.md`. Small accessibility fix: contact form field
+errors now use `role="alert"` so they're announced to screen readers,
+not just exposed via `aria-describedby`. No other admin-CMS or
+Supabase-facing behavior changed.
+
 ## Next Steps
 
 A lightweight boot/loading sequence or deeper homepage polish pass — no
-further phase has been started.
+further phase has been started. See "Production Configuration
+Required" in `docs/PROJECT_STATE.md` for what still needs the site
+owner's action before a real production deploy (principally: setting
+`NEXT_PUBLIC_SITE_URL`).

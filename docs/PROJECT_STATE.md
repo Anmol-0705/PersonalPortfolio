@@ -5,23 +5,341 @@ across development phases. Update it whenever a phase completes.
 
 ## Current Phase
 
-Phase 11 — Unsaved Changes Navigation Guard
+Phase 12 — Production Metadata and Portfolio Polish
 
 ## Phase Status
 
-**CODE IMPLEMENTED. `npm run lint` and `npm run build` both pass. LIVE
-AUTHENTICATED CLICK-THROUGH NOT PERFORMED BY THIS SESSION** — no
-browser tool or admin credentials, the same limitation stated in every
-prior phase's record. No database migration was required or made; this
-phase is entirely admin-UI navigation logic.
+**CODE IMPLEMENTED. `npm run lint` and `npm run build` both pass. Code-level
+verification performed against a local production build (`npm run
+build && npm run start`) for sitemap/robots/metadata/icons and the 404
+fix below. LIVE BROWSER/PRODUCTION TESTING NOT PERFORMED BY THIS
+SESSION** — no browser tool, no production deployment, the same
+limitation stated in every prior phase's record. No database migration
+was required or made. One real bug found and fixed during this
+phase's own validation — see "Root Cause: Soft 404 on Unknown
+Projects" below.
 
 ## Last Updated
 
-2026-08-26 (Phase 11)
+2026-08-26 (Phase 12)
 
 ## Current Branch
 
 main
+
+## Phase 12 Summary
+
+Made the portfolio production-ready on SEO/metadata/social-sharing/site-identity/
+error-handling axes, without touching Supabase, RLS, auth, or the admin
+CMS built in Phases 7–11.
+
+### Metadata Architecture
+
+- **`lib/site-url.ts`** — `getSiteUrl()` reads `NEXT_PUBLIC_SITE_URL`
+  (new env var, see `.env.example`), falling back to
+  `http://localhost:3000` in local dev so nothing throws when it's
+  unset. **Production must set this to the real domain** — see
+  "Production Configuration Required" below. No production domain was
+  invented or hardcoded anywhere; every place that needs an absolute
+  URL reads this one function.
+- **`app/layout.tsx`** — added `metadataBase: new URL(getSiteUrl())`,
+  site-wide `openGraph`/`twitter` defaults (real `siteConfig.name`/`role`,
+  nothing fabricated), and `alternates.canonical: "/"`. Deliberately
+  **no `title.template`** — every route already sets its own complete
+  title string (e.g. `` `About — ${siteConfig.name}` ``); a template
+  would double-append the site name on top of what's already there.
+- **`app/about/page.tsx`, `projects/page.tsx`, `services/page.tsx`,
+  `contact/page.tsx`** — each already had its own `title`/`description`
+  (from earlier phases); this phase added `alternates.canonical` to
+  each and a `description` to `/about` (it didn't have one).
+- **`app/projects/[slug]/page.tsx`'s `generateMetadata`** — now also
+  sets `alternates.canonical`, `openGraph` (title, real
+  `shortDescription`, `type: "article"`, and the project's actual
+  `cover_image` URL when one exists), and `twitter` (`summary_large_image`
+  card, same real data). When a project has no cover image, `images` is
+  left `undefined` so it inherits the site-wide default share image
+  (`app/opengraph-image.tsx`) rather than fabricating one. The
+  "project not found" metadata branch now also sets
+  `robots: { index: false, follow: false }`.
+
+### Site Identity
+
+The project previously shipped the default Next.js favicon (a known
+Phase 9/10 limitation). Replaced with a code-generated identity built
+entirely on `next/og`'s `ImageResponse` (bundled with `next`, already a
+dependency — no new package):
+
+- **`app/icon.svg`** — static SVG favicon: dark background, purple
+  (`--pixel-purple`) neo-border, "AK" monogram (the owner's real
+  initials, from `siteConfig.name` — "Anmol Kumar"), green
+  (`--crt-green`) underline accent. Matches the retro-desktop design
+  tokens in `app/globals.css` exactly (same hex values).
+- **`app/apple-icon.tsx`** — 180×180 PNG generated at build time via
+  `ImageResponse`, same design language, for iOS home-screen icons.
+- **`app/opengraph-image.tsx` / `app/twitter-image.tsx`** — 1200×630
+  PNG default social-share image (via shared JSX in `lib/og-image.tsx`)
+  showing the real site name/role and a "SYSTEM ONLINE" retro-terminal
+  motif — the fallback for every route that doesn't set its own
+  `openGraph.images` (currently only project case studies with a cover
+  image override it).
+- **`app/manifest.ts`** — a minimal web app manifest (name, short_name,
+  theme/background color, the SVG icon) for the "Site Identity" ask;
+  no PWA install-prompt behavior was added beyond what the manifest
+  file itself provides.
+- The old `app/favicon.ico` (Next's default logo) was deleted — `icon.svg`
+  is now the sole favicon source. **Known trade-off:** some very old
+  browsers/crawlers that request the literal path `/favicon.ico`
+  directly (ignoring the `<link rel="icon">` tag) will get a 404 for
+  that specific request; every modern browser uses the SVG icon
+  correctly. Documented as a known limitation below.
+
+### Sitemap and Robots
+
+- **`app/robots.ts`** — `Allow: /`, `Disallow: /admin` (covers the
+  whole admin tree — dashboard and login), plus a `Sitemap:` line
+  pointing at `${getSiteUrl()}/sitemap.xml`.
+- **`app/sitemap.ts`** — lists `/`, `/about`, `/projects`, `/services`,
+  `/contact`, plus one entry per **published** project
+  (`/projects/{slug}`, with `lastModified` from the real `updated_at`).
+  Projects come from `getAllProjects()` (`lib/projects.ts`, unchanged),
+  which is RLS-scoped — but this route explicitly filters
+  `project.published` again anyway, as defense in depth: `sitemap.ts`
+  is a normal Server Component-like route that reads request cookies
+  like any other, so a signed-in admin's own browser visiting
+  `/sitemap.xml` would otherwise see their own session's RLS scope
+  (i.e. drafts too). The sitemap must never list a draft/unpublished
+  project regardless of who or what requests it, so the filter doesn't
+  rely on RLS alone. No admin route is included, matching the brief.
+
+### Error and Not-Found States
+
+- **`app/not-found.tsx`** (pre-existing, from an earlier phase) — added
+  a `metadata` export (`title`, `robots: { index: false, follow: false }`);
+  the page itself (retro `error.exe` window, link home, no technical
+  detail) was already correct and untouched.
+- **`app/error.tsx`** (new) — route-level error boundary for the public
+  site. Same `RetroWindow` "error.exe" visual language as `not-found.tsx`,
+  a "Try Again" button (`reset()`) and a link home. Never renders the
+  actual error message, stack, or `digest` to the visitor — only
+  `console.error`s it for local debugging, consistent with the
+  project's established "log server-side, never leak client-side"
+  pattern from `lib/projects.ts` etc. Does not touch or duplicate any
+  admin-specific error UI (the admin `[id]/edit` "not found" card from
+  Phase 8 is untouched).
+- **`app/global-error.tsx`** (new) — catches an error in the root
+  layout itself (rare; `app/error.tsx` handles everything else). Next
+  requires this file to render its own `<html>`/`<body>`, since the
+  root layout may be the thing that failed — so it's deliberately
+  dependency-free: inline styles only, no imports from `components/`,
+  no Tailwind/design-system reliance, so it can't itself fail if
+  something upstream broke.
+
+### Root Cause: Soft 404 on Unknown Projects
+
+**Confirmed bug, found while validating this phase — not a guess, and
+not introduced by this phase's metadata changes.** An unknown project
+slug (`/projects/does-not-exist`) rendered the correct 404 body
+(`notFound()` → `app/not-found.tsx`'s content appears) but the HTTP
+response status was **200 OK**, not 404 — a classic "soft 404" that
+search engines index as a real, valid page.
+
+**Diagnosis, via a local production build (`npm run build && npm run
+start`) and `curl -D -`:**
+
+1. Verified the bug pre-dated this phase by swapping in the exact
+   `git show HEAD` version of `app/projects/[slug]/page.tsx` (before
+   any Phase 12 edit) — same 200-instead-of-404 result. Not a
+   regression from this phase's metadata work.
+2. Bisected with a series of minimal repro routes: a synchronous
+   `notFound()` alone → correct 404; an async page + `notFound()` →
+   correct 404; adding an async `generateMetadata` alongside → still
+   correct 404; adding `cookies()` + a dynamic `[slug]` param → still
+   correct. Using the *real* `getProjectBySlug()` in an isolated test
+   route → still correct 404.
+3. The actual cause: **this phase's own first attempt at Part 5** (loading
+   states) added `app/projects/loading.tsx` and
+   `app/projects/[slug]/loading.tsx`. A `loading.tsx` at or above a
+   route segment makes Next.js treat that segment as streamed — the
+   framework flushes an initial HTML shell (with the loading fallback)
+   and a `200` status **before** the actual page component (and any
+   `notFound()` it might call) has resolved. Once that shell is
+   flushed, the HTTP status line is already sent and can never be
+   changed to 404, no matter what the page does afterward. Confirmed
+   by removing each `loading.tsx` file one at a time: the parent
+   (`app/projects/loading.tsx`) alone reproduced it, and the child
+   (`app/projects/[slug]/loading.tsx`) alone also reproduced it
+   independently — either one on the path to a `notFound()`-capable
+   route breaks its status code.
+
+**Fix:** both `loading.tsx` files were removed. `/projects` and
+`/projects/[slug]` render exactly as they did before this phase (no
+skeleton state) — correctness of the HTTP status code for a
+`notFound()`-capable route takes priority over a nice-to-have loading
+skeleton, per this phase's own brief ("Do not introduce loading UI
+that creates hydration problems or misleading behavior" — a wrong
+status code is exactly that). **Verified after the fix**, against a
+local production build:
+
+```
+GET /projects/this-does-not-exist  → 404 (was 200 before the fix)
+GET /projects/sundown-studios      → 200 (a real, published project)
+GET /projects                      → 200
+GET /does-not-exist-entirely       → 404 (framework-level, unaffected either way)
+```
+
+This means **Part 5 (loading states) was evaluated and explicitly not
+implemented** for `/projects`/`/projects/[slug]` — not because it
+wasn't "genuinely needed" in the UX sense, but because Next.js's
+`loading.tsx` mechanism is fundamentally incompatible with a route that
+can call `notFound()`, in this Next.js version, with no discovered
+workaround that preserves both. No other route in this app calls
+`notFound()`, so this constraint is specific to these two routes.
+
+### Accessibility Fix
+
+**`components/contact/contact-form.tsx`** — the three field-level
+validation error messages (name/email/message) already had
+`aria-invalid`/`aria-describedby` linking them to their input, so a
+screen reader user tabbing to an invalid field would hear the error —
+but the error text itself had no live-region role, so a user who
+stayed on the Send button after a failed validation wouldn't hear
+anything change. Added `role="alert"` to each (matching the pattern
+already used for the form's top-level submission error) so they're
+announced the moment they appear, not only when the user happens to
+tab back to that field.
+
+**Other areas reviewed, no genuine issue found (per the brief's "fix
+only genuine problems" instruction — nothing else was changed):**
+Navbar (proper `aria-expanded`/`aria-controls`/`aria-current`, focus-visible
+throughout), the terminal (`role="log"`/`aria-live="polite"`,
+`sr-only` label, full keyboard history nav), the engagement
+selector (correct WAI-ARIA tabs pattern — `role="tablist"`/`"tab"`/`"tabpanel"`,
+roving `tabIndex`, arrow-key navigation, `MotionConfig reducedMotion="user"`
+respecting `prefers-reduced-motion`), heading hierarchy (one `<h1>` in
+`RetroHero`, `<h2>`s per section, `<h3>`s for sub-items — correctly
+nested), and project cover image alt text (`"${title} preview"`,
+already meaningful; the no-image placeholder already uses
+`role="img"` + a real `aria-label` instead of a bare icon).
+
+### Performance Review
+
+Reviewed the Supabase Storage image pipeline
+(`components/projects/project-media.tsx`, `next.config.ts`) and public
+data fetching (`lib/projects.ts`, `lib/skills.ts`, `lib/services.ts`).
+No genuine issue found — `next/image` with `sizes` is already used for
+the cover image, `images.remotePatterns` is scoped to exactly one
+Supabase hostname/path, and `images.dangerouslyAllowLocalIP: true`
+(the Phase 8 NAT64 workaround, explained at length in its own inline
+comment) was left untouched, per the brief's explicit instruction not
+to casually change it. Public pages fetch their own data once per
+request (no duplicate/N+1 Supabase calls found); `app/page.tsx` already
+fetches projects/skills/services in parallel via `Promise.all`. No
+premature optimization was made.
+
+### Security Review
+
+Checked `.env.example` (documents every var, no real secret values),
+`.gitignore` (`.env*` excluded, `.env.example` explicitly allowed
+through), and grepped the whole repo for `SERVICE_ROLE`/`service_role`/
+`SUPABASE_SECRET` — no match anywhere; the Supabase secret/service-role
+key is confirmed still unused by this app (every admin operation runs
+through the logged-in user's own session, enforced by RLS, unchanged
+from Phase 7). `lib/contact-email.ts` fails safely when
+`RESEND_API_KEY`/`RESEND_FROM_EMAIL` are missing (`reason: "missing-config"`,
+logged server-side, generic message to the client) and never echoes
+Resend/Supabase error detail to the browser. Every admin Server Action
+still calls `requireAdmin()` independently (unchanged from Phases
+7–11). No admin bypass was introduced; no RLS, `is_admin()`, or
+`admin_users` change was made. The admin email referenced in
+`supabase/migrations/0000_ensure_admin_user.sql` is unchanged and, as
+in prior phases, is a private-repository concern, not a public secret.
+
+### Contact and SEO Review
+
+Reviewed (code-level only — no email was sent) `app/api/contact/route.ts`
+and `lib/contact-email.ts`: honeypot check, in-memory per-IP rate limit
+(15s window — a lightweight guard, not a production spam defense; same
+documented trade-off as Phases 5–11), server-side field validation, and
+`replyTo: payload.email` are all unchanged and intact. Success is only
+returned to the client after `resend.emails.send()` resolves without
+error. No test email was sent (no explicit owner permission requested
+for this phase, and the brief said not to without it).
+
+### Files Created
+
+- `lib/site-url.ts`, `lib/og-image.tsx`
+- `app/icon.svg`, `app/apple-icon.tsx`, `app/opengraph-image.tsx`,
+  `app/twitter-image.tsx`, `app/manifest.ts`
+- `app/robots.ts`, `app/sitemap.ts`
+- `app/error.tsx`, `app/global-error.tsx`
+
+### Files Modified
+
+- `app/layout.tsx` — `metadataBase`, site-wide OG/Twitter defaults,
+  root canonical.
+- `app/about/page.tsx`, `app/projects/page.tsx`, `app/services/page.tsx`,
+  `app/contact/page.tsx` — added `alternates.canonical` (and a
+  `description` for `/about`, which didn't have one).
+- `app/projects/[slug]/page.tsx` — richer `generateMetadata` (canonical,
+  OG/Twitter with the real cover image or the site default, `noindex`
+  on the not-found branch).
+- `app/not-found.tsx` — added a `metadata` export (`noindex`); page
+  body unchanged.
+- `components/contact/contact-form.tsx` — `role="alert"` on the three
+  field-level error messages.
+- `.env.example` — documented `NEXT_PUBLIC_SITE_URL`.
+- `app/favicon.ico` — deleted (see "Site Identity" above).
+
+### Dependencies Added
+
+None. `next/og`'s `ImageResponse` is bundled with the `next` package
+already in `package.json` — no new entry was added there.
+
+### Database / Migrations
+
+None required, none made. This phase touched no Supabase schema, RLS
+policy, or `is_admin()` — confirmed by design (nothing in this phase's
+scope needed a schema change) and by review (see "Security Review"
+above).
+
+## Production Configuration Required
+
+Distinguishing what's done in code from what the site owner must still
+configure/verify before a real production deploy:
+
+**Completed in code:**
+- Metadata architecture (titles, descriptions, canonical URLs, OG/Twitter)
+- Dynamic project metadata from real Supabase data
+- Sitemap generation (published projects only)
+- Robots rules (admin disallowed)
+- Site identity (favicon/apple-icon/OG-image/manifest)
+- Public error/404 boundaries
+- `NEXT_PUBLIC_SITE_URL` configuration mechanism (with a safe local-dev fallback)
+
+**Requires owner deployment configuration (not yet done — cannot be
+done from code alone):**
+- Set `NEXT_PUBLIC_SITE_URL` to the real production domain in the
+  hosting provider's environment variables. Until this is set in
+  production, `metadataBase`, the sitemap, and robots.txt's `Sitemap:`
+  line will all resolve to `http://localhost:3000`, which is wrong in
+  production and would need to be fixed before launch.
+- All Phase 7–11 production requirements still apply and are unchanged
+  by this phase: production Supabase project, admin user configured
+  (`0000_ensure_admin_user.sql`), all migrations applied in order
+  (0000–0007), Storage bucket configured, Resend sender/domain verified.
+
+**Requires production verification (not performed by this session):**
+- Sitemap/robots resolve correctly on the real domain once
+  `NEXT_PUBLIC_SITE_URL` is set.
+- Social share previews (Slack/Twitter/LinkedIn/etc.) render the
+  generated OG image correctly — code-level generation was verified
+  locally; actual third-party unfurling was not.
+- Favicon/apple-touch-icon display correctly across real browsers/iOS.
+- Contact form end-to-end with a real Resend send (not performed this
+  phase, consistent with "do not send test emails without explicit
+  permission").
+- Admin authentication and image upload — unchanged by this phase;
+  last confirmed live in Phases 8–11.
 
 ## Phase 11 Summary
 
@@ -834,6 +1152,30 @@ NAT64 false positive (see Root Cause above). Alt text
 
 ## Known Limitations
 
+**Phase 12:**
+
+- `/projects` and `/projects/[slug]` deliberately have **no**
+  `loading.tsx` — see "Root Cause: Soft 404 on Unknown Projects" above.
+  Any `loading.tsx` on the path to a route that calls `notFound()`
+  breaks that route's HTTP status code in this Next.js version. This
+  was evaluated and consciously not implemented, not overlooked.
+- `app/favicon.ico` was removed in favor of `app/icon.svg`. A browser
+  or crawler that requests the literal `/favicon.ico` path directly
+  (bypassing the `<link rel="icon">` tag Next generates) gets a 404 for
+  that one request — modern browsers all use the `<link>` tag and are
+  unaffected. If this ever matters (e.g. a legacy consumer), the fix is
+  adding back a real `.ico` file.
+- `NEXT_PUBLIC_SITE_URL` must be set in production — see "Production
+  Configuration Required" above. Until it is, every absolute URL this
+  phase generates (metadataBase, OG/Twitter images, canonical links,
+  sitemap, robots.txt's `Sitemap:` line) resolves to `localhost`.
+- Live browser and production testing were not performed this
+  phase — no browser tool, no production deployment. See "Validation"
+  in this phase's final report (delivered separately) for the exact
+  split between what was and wasn't verified.
+- The in-memory contact-form rate limit (documented since Phase 5) is
+  unchanged and was only reviewed, not altered, this phase.
+
 **Phase 11:**
 
 - The browser back/forward guard (see "Browser Back/Forward Behavior"
@@ -878,7 +1220,8 @@ NAT64 false positive (see Root Cause above). Alt text
 
 **Carried over from Phase 7/8:**
 
-- No automated test suite; Next.js default favicon.
+- No automated test suite (favicon replaced with a real site identity
+  in Phase 12 — no longer a limitation).
 - Storage is public-read with no per-row signed-URL gating — acceptable
   for a portfolio site's cover images, not a general-purpose
   private-file pattern.
@@ -898,14 +1241,15 @@ NAT64 false positive (see Root Cause above). Alt text
 
 ## Next Phase
 
-Immediate: the site owner click-tests Phase 11's navigation guard end
-to end (AdminNav clicks, browser back/forward, Cancel, across all six
-forms, desktop and mobile — the exact checklist in this phase's brief)
-and reports back, along with the still-outstanding Phase 10 admin UX
-click-through (search/filter, bulk actions, reordering) — this is
-verification of already-implemented code, not new development.
+Immediate: the site owner (1) sets `NEXT_PUBLIC_SITE_URL` for
+production and redeploys, (2) verifies the sitemap/robots/social-share
+previews resolve correctly on the real domain, and (3) still owes the
+outstanding live click-throughs from Phases 10 and 11 (admin
+search/filter/bulk/reorder, and the unsaved-changes navigation guard)
+— this is verification of already-implemented code, not new
+development.
 
 Beyond that, no specific next phase has been assigned. Candidates still
-open: a lightweight boot/loading sequence, deeper homepage content/SEO
+open: a lightweight boot/loading sequence, deeper homepage content
 polish, or automated test coverage. Do not begin any of these without
 explicit instruction.

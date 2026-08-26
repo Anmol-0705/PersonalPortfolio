@@ -6,6 +6,7 @@ import { siteConfig } from "@/data/site-config";
 export const metadata: Metadata = {
   title: `Projects — ${siteConfig.name}`,
   description: `A collection of projects built by ${siteConfig.name}, ${siteConfig.role}.`,
+  alternates: { canonical: "/projects" },
 };
 
 export default async function ProjectsPage() {
