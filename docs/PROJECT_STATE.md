@@ -9,23 +9,22 @@ Phase 8 — Project Editing Fix and Image Uploads
 
 ## Phase Status
 
-Code implemented and validated (lint + build + static/log-based
-diagnosis). **Not yet fully live** — five SQL migration files exist in
-`supabase/migrations/` and none of them can be executed by this session
-(no DB execution tool is available; every migration in this repo has
-always required the site owner to run it manually in the Supabase SQL
-editor). See "Required Manual Steps" below — `0004` in particular is a
-confirmed bug fix and should be run first.
+**Complete and confirmed working live by the site owner.** All five SQL
+migrations have been run against the live Supabase project. Admin
+project editing (create/edit/publish/unpublish/delete) and Supabase
+Storage-backed cover images (upload/replace/remove, public display) have
+all been verified end to end in the real browser — not just by code
+review or `npm run build`. `npm run lint` and `npm run build` both pass
+on the final state.
 
-Live browser verification (actually clicking through Login → Edit →
-Save, and Upload → Replace → Remove) could **not** be performed by this
-session — there is no browser automation tool available and no admin
-credentials were provided (nor should they be pasted into chat). Findings
-below are backed by static code review, a full `npm run build`/`lint`
-pass, and one direct, reproducible finding confirmed against the live
-Supabase project's REST API (see Root Cause below) — not a click-through
-of the admin UI. The site owner should perform the EDIT TEST and IMAGE
-TEST flows from the phase brief and report back.
+This session still has no browser automation tool and never handled
+admin credentials — every fix in this phase was diagnosed via static
+code review, direct REST/DNS probes against the live Supabase project
+and this network's resolver, and server log inspection, then confirmed
+working by the site owner after applying each fix. That division of
+labor (this session diagnoses and fixes in code; the site owner runs
+migrations, restarts the dev server, and verifies in-browser) held for
+the whole phase and is why it could close out cleanly.
 
 ## Last Updated
 
@@ -90,30 +89,72 @@ that materially change how any *remaining* Edit failure would present:
    inline "Project Not Found" card that stays inside the admin chrome
    with a link back to the dashboard.
 
-If Edit is still broken after running `0004`, the fix is very likely a
-five-minute diagnosis from the new server log line — please reproduce
-and share it.
+Resolution confirmed: after `0004` was run, the site owner verified Edit
+works end to end (load existing values, change fields, save, persists
+after refresh).
 
-## Required Manual Steps
+## Root Cause: Cover Image Uploaded But Not Displaying
 
-Run these in the Supabase SQL editor, **in order**. `0000`–`0002` were
-introduced in Phase 7 and may already be applied if the site owner ran
-them then — check `select * from public.projects;` returns 5 rows and
-`select * from public.admin_users;` returns your admin user before
-re-running. `0003` and `0004` are new in this phase and have **not**
-been run by any session.
+A second, unrelated bug surfaced once Storage upload itself worked:
+uploads succeeded, the object was publicly readable at its direct
+Supabase URL, but the image never rendered inside the app. Network tab
+showed the failing request going through Next's `/_next/image`
+optimizer (`/_next/image?url=...`), returning `400`.
 
-1. `0000_ensure_admin_user.sql` — links your Supabase Auth user to
-   `public.admin_users` (edit the placeholder email first if not
-   already customized).
+**Two layered issues, diagnosed by curling the running dev server's own
+`/_next/image` endpoint directly:**
+
+1. **Stale dev server process.** The first `400` returned the body
+   `"url" parameter is not allowed` — Next's exact message when a
+   remote image's hostname isn't in the *running* server's
+   `images.remotePatterns`. The file on disk was already correct; Next
+   only reads `next.config.ts` at process startup, so a config edit
+   without a full dev-server restart has no effect. Restarting picked
+   up the config.
+2. **NAT64 DNS false positive.** After restarting, the server's own log
+   showed a different, more specific error:
+   `hostname resolved to private IP` with addresses
+   `64:ff9b::6812:260a` / `64:ff9b::ac40:95f6`. This machine's network
+   resolves `*.supabase.co` using NAT64/DNS64 — a standard mechanism
+   (RFC 6052, well-known prefix `64:ff9b::/96`) that synthesizes IPv6
+   addresses embedding a real public IPv4 address, here Cloudflare's
+   `104.18.38.10` / `172.64.149.246` (who fronts Supabase Storage).
+   Next.js 16 added an SSRF guard to the image optimizer that
+   misclassifies this NAT64 prefix as a private/local address and
+   blocks the fetch — a false positive: opening the same URL directly
+   in a browser (which resolves the hostname differently) worked fine
+   throughout.
+
+**Fix:** `next.config.ts` sets `images.dangerouslyAllowLocalIP: true`,
+with an inline comment explaining why. This is Next's own documented
+escape hatch for exactly this class of false positive (their error
+message names this flag directly, and the docs cite "split-horizon DNS"
+environments as the intended use case). It does not broaden what can be
+fetched — `images.remotePatterns` still restricts every optimized-image
+request to this one Supabase hostname and the `/storage/v1/object/public/**`
+path; this flag only stops the (here, incorrect) private-IP check from
+blocking an otherwise-already-allowed, genuinely public host.
+
+**Confirmed working live** by the site owner after restarting the dev
+server with this config in place.
+
+## Required Manual Steps — all completed
+
+All five SQL migrations have been run against the live Supabase project
+and confirmed (project editing and image upload both work end to end,
+which is only possible with all of these applied):
+
+1. `0000_ensure_admin_user.sql` — links the Supabase Auth admin user to
+   `public.admin_users`.
 2. `0001_projects_slug_unique.sql` — unique constraint on `projects.slug`.
-3. `0002_seed_existing_projects.sql` — inserts the original 5 projects.
-4. `0003_project_images_storage.sql` — creates the `project-images`
-   Storage bucket (public-read) and its admin-only write policies. New
-   this phase.
-5. **`0004_grant_anon_select_projects.sql`** — the bug fix above. New
-   this phase, and the most urgent: without it, public pages stay
-   broken regardless of anything else.
+3. `0002_seed_existing_projects.sql` — inserted the original 5 projects.
+4. `0003_project_images_storage.sql` — created the `project-images`
+   Storage bucket (public-read) and its admin-only write policies.
+5. `0004_grant_anon_select_projects.sql` — the anon-grant bug fix.
+
+No further manual SQL is pending. Any future schema/policy/storage
+change should be added as a new numbered migration file rather than
+editing these in place.
 
 ## Build Status
 
@@ -209,10 +250,15 @@ helpers, used by both the component (live edit-mode uploads) and
 `project.media.coverImage` via `next/image` when present, and the
 existing "MEDIA COMING SOON" placeholder when absent — **no changes were
 needed there**; it was already correct, just never fed a real URL before
-this phase. `next.config.ts` now allowlists Supabase Storage's public
-object URLs (`https://*.supabase.co/storage/v1/object/public/**`) via
-`images.remotePatterns`, which `next/image` requires for any remote host.
-Alt text (`"${project.title} preview"`) was already meaningful — untouched.
+this phase. `next.config.ts` allowlists Supabase Storage's public object
+URLs for this project's specific hostname via `images.remotePatterns`
+(required by `next/image` for any remote host) and sets
+`images.dangerouslyAllowLocalIP: true` to work around this network's
+NAT64 false positive (see Root Cause above). Alt text
+(`"${project.title} preview"`) was already meaningful — untouched.
+
+**Confirmed rendering correctly** on the homepage featured cards,
+`/projects` listing, and `/projects/[slug]` case study page.
 
 ## Files Created
 
@@ -233,7 +279,8 @@ Alt text (`"${project.title} preview"`) was already meaningful — untouched.
   found" state instead of the site-wide 404.
 - `components/admin/project-form.tsx` — integrates
   `ProjectImageUpload`; create-mode staged-upload-after-save flow.
-- `next.config.ts` — `images.remotePatterns` for Supabase Storage.
+- `next.config.ts` — `images.remotePatterns` for Supabase Storage, plus
+  `images.dangerouslyAllowLocalIP: true` for the NAT64 false positive.
 
 ## Public Visibility Rules (verified by code review, re-confirmed this phase)
 
@@ -254,11 +301,18 @@ Alt text (`"${project.title} preview"`) was already meaningful — untouched.
 - Storage is public-read with no per-row signed-URL gating (see Storage
   Architecture's stated tradeoff above) — acceptable for a portfolio
   site's cover images, not a general-purpose private-file pattern.
-- Live click-through testing (login, edit, upload, replace, remove,
-  responsive breakpoints) was not performed by this session — no
-  browser tool, no credentials. The EDIT TEST, IMAGE TEST, VISIBILITY
-  TEST, SECURITY TEST, and RESPONSIVE TEST sections of the phase brief
-  should be run by the site owner after applying `0003` and `0004`.
+- `images.dangerouslyAllowLocalIP: true` is specific to this
+  development machine's NAT64 network resolution. It's harmless in
+  production (a normal hosting environment won't resolve Supabase's
+  hostname to a NAT64 address, so the flag simply won't matter there),
+  but if a future environment legitimately needs the private-IP guard
+  active, revisit this — the real fix would be forcing IPv4-first DNS
+  resolution in the Node process instead of disabling the guard, which
+  was deliberately not pursued here to keep this phase's scope small.
+- Responsive breakpoint testing (375/768/1440px) was not independently
+  performed by this session — no browser tool available. Not flagged as
+  broken, just not separately re-verified beyond the site owner's
+  general "confirmed working live."
 - `createProject`'s `sort_order` is derived from the current row count —
   fine for a single-admin workflow, not safe under concurrent inserts
   (unchanged from Phase 7, still not a realistic scenario here).
@@ -269,10 +323,7 @@ Alt text (`"${project.title} preview"`) was already meaningful — untouched.
 
 ## Next Phase
 
-Recommend: after the site owner confirms `0004` fixes public pages and
-Edit works end-to-end (or reports the new log line if it doesn't), a
-short follow-up to remove the now-unneeded dev-error-detail branches
-would only make sense if the team decides they're no longer wanted —
-otherwise no action needed there. Beyond that, no specific next phase
-was assigned; candidates from Phase 7 (boot/loading sequence, deeper
-homepage polish, automated tests) remain open.
+No specific next phase has been assigned. Candidates from Phase 7,
+still open: a lightweight boot/loading sequence, deeper homepage
+content/SEO polish, or automated test coverage. Do not begin any of
+these without explicit instruction.

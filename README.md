@@ -7,12 +7,12 @@ modern, premium foundation.
 
 ## Status
 
-**Phase 8 — Project Editing Fix and Image Uploads: Implemented, pending
-your migration run.** Fixed a table-level permissions gap that broke
-every public page, fixed the admin Edit flow's error visibility, and
-added Supabase Storage-backed cover image upload/replace/remove. See
-[`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for the full record,
-including the SQL migrations that still need to be run manually.
+**Phase 8 — Project Editing Fix and Image Uploads: Complete and
+confirmed working live.** The portfolio now runs on Supabase-backed
+project management end to end: a private admin panel for creating,
+editing, publishing, and deleting projects, and Supabase Storage-backed
+cover images with upload, replacement, and removal. See
+[`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for the full record.
 
 ## Tech Stack
 
@@ -122,19 +122,17 @@ signup) lets the site owner create, edit, publish/unpublish, and delete
 projects through a UI matching the existing design system, instead of
 editing source code.
 
-**Phase 8 — Project Editing Fix and Image Uploads** · Found and fixed a
-missing `GRANT SELECT ... TO anon` on `public.projects` (RLS policies
-alone don't grant table access — this was silently breaking every public
-page). Fixed the admin Edit page to show a clear "not found" state
-inside the admin layout instead of the site-wide 404. Added Supabase
-Storage-backed project cover images: upload, replace, and remove, with
-admin-only write policies and public read.
+**Phase 8 — Project Editing Fix and Image Uploads** · Fixed a missing
+`GRANT SELECT ... TO anon` on `public.projects` that was silently
+breaking every public page, and fixed the admin Edit page's "not found"
+UX. Added Supabase Storage-backed project cover images — upload,
+replace, and remove, with admin-only write policies and public read —
+including working around a network-specific Next.js image optimizer
+false positive (see `docs/PROJECT_STATE.md`). **Confirmed working live**:
+admin project editing and cover image upload/replace/remove both verified
+end to end.
 
 ## Next Steps
 
-1. **Run the SQL migrations** in `supabase/migrations/`, in order
-   (`0000` through `0004`), via the Supabase SQL editor — see
-   `docs/PROJECT_STATE.md` for exactly what each one does and which are
-   likely already applied. `0004` in particular is the fix for the
-   anon-grant bug and should be run immediately.
-2. A lightweight boot/loading sequence or deeper homepage polish pass.
+A lightweight boot/loading sequence or deeper homepage polish pass —
+no further phase has been started.
