@@ -11,7 +11,8 @@ import { ProjectImageUpload } from "@/components/admin/project-image-upload";
 import { slugify } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { uploadProjectImage } from "@/lib/supabase/storage";
-import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
+import { useDirtyFormGuard } from "@/hooks/use-dirty-form-guard";
+import { useUnsavedChangesContext } from "@/components/admin/unsaved-changes-provider";
 import {
   createProject,
   updateProject,
@@ -66,7 +67,8 @@ export function ProjectForm({ mode, project }: ProjectFormProps) {
   const isDirty =
     !justSaved &&
     (JSON.stringify(form) !== JSON.stringify(initialForm) || stagedImageFile !== null);
-  useUnsavedChangesWarning(isDirty);
+  useDirtyFormGuard(isDirty);
+  const { confirmDiscard } = useUnsavedChangesContext();
 
   function updateField<K extends keyof ProjectFormInput>(
     key: K,
@@ -83,10 +85,11 @@ export function ProjectForm({ mode, project }: ProjectFormProps) {
   }
 
   function handleCancel() {
-    if (isDirty && !window.confirm("You have unsaved changes. Leave without saving?")) {
+    if (!isDirty) {
+      router.push(PROJECTS_LIST_HREF);
       return;
     }
-    router.push(PROJECTS_LIST_HREF);
+    confirmDiscard(() => router.push(PROJECTS_LIST_HREF));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "@/components/admin/logout-button";
+import { UnsavedChangesProvider } from "@/components/admin/unsaved-changes-provider";
 
 export default async function AdminDashboardLayout({
   children,
@@ -25,14 +26,16 @@ export default async function AdminDashboardLayout({
   }
 
   return (
-    <div className="container-app py-12 sm:py-16">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b-[3px] border-border pb-6">
-        <p className="font-retro text-lg tracking-wide text-accent-secondary">
-          {"// ADMIN"}
-        </p>
-        <LogoutButton />
+    <UnsavedChangesProvider>
+      <div className="container-app py-12 sm:py-16">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b-[3px] border-border pb-6">
+          <p className="font-retro text-lg tracking-wide text-accent-secondary">
+            {"// ADMIN"}
+          </p>
+          <LogoutButton />
+        </div>
+        {children}
       </div>
-      {children}
-    </div>
+    </UnsavedChangesProvider>
   );
 }

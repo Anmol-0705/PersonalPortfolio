@@ -11,7 +11,8 @@ import {
   serviceIconLabels,
   serviceIconMap,
 } from "@/lib/service-icons";
-import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
+import { useDirtyFormGuard } from "@/hooks/use-dirty-form-guard";
+import { useUnsavedChangesContext } from "@/components/admin/unsaved-changes-provider";
 import { createService, updateService } from "@/lib/admin/service-actions";
 import type { ServiceFormInput } from "@/lib/admin/service-actions";
 import type { Service } from "@/types/service";
@@ -41,17 +42,19 @@ export function ServiceForm({ mode, service, nextSortOrder }: ServiceFormProps) 
   const [justSaved, setJustSaved] = useState(false);
 
   const isDirty = !justSaved && JSON.stringify(form) !== JSON.stringify(initialForm);
-  useUnsavedChangesWarning(isDirty);
+  useDirtyFormGuard(isDirty);
+  const { confirmDiscard } = useUnsavedChangesContext();
 
   function updateField<K extends keyof ServiceFormInput>(key: K, value: ServiceFormInput[K]) {
     setForm((previous) => ({ ...previous, [key]: value }));
   }
 
   function handleCancel() {
-    if (isDirty && !window.confirm("You have unsaved changes. Leave without saving?")) {
+    if (!isDirty) {
+      router.push("/admin/services");
       return;
     }
-    router.push("/admin/services");
+    confirmDiscard(() => router.push("/admin/services"));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {

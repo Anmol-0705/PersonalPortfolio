@@ -7,13 +7,18 @@ modern, premium foundation.
 
 ## Status
 
-**Phase 10 — Admin CMS Polish: code complete, pending your live
-verification.** The admin panel is now a real dashboard (real Supabase
-stats, recent projects) with search/filter, bulk actions, and accessible
-reordering for projects/skills/services, plus unsaved-changes warnings
-on every form. Phases 1–9 (Supabase-backed projects/skills/services,
-Storage-backed images, admin auth) are confirmed working live. See
-[`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for the full record.
+**Phase 11 — Unsaved Changes Navigation Guard: code complete, pending
+your live verification.** Every admin form (project/skill/service,
+create and edit) now warns before an unsaved change is lost via
+`AdminNav` link clicks, the browser back/forward buttons, and the
+Cancel button — not just tab close/refresh — using a shared
+`UnsavedChangesProvider` and a reusable `useDirtyFormGuard` hook. See
+"Unsaved Changes Protection" in [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md)
+for exactly what's guarded and the App Router back/forward limitation.
+Phases 1–10 (Supabase-backed projects/skills/services, Storage-backed
+images, admin auth, dashboard/search/bulk actions/reordering) are
+confirmed working live. See `docs/PROJECT_STATE.md` for the full
+record.
 
 ## Tech Stack
 
@@ -71,7 +76,8 @@ app/
 components/
   layout/, ui/, hero/, sections/, projects/, engagement/, contact/, retro/
   terminal/                Interactive command-line experience
-  admin/                   Admin-only UI (forms, lists, badges, bulk actions, reorder)
+  admin/                   Admin-only UI (forms, lists, badges, bulk actions,
+                            reorder, GuardedLink, UnsavedChangesProvider)
 data/                     projects.ts, skills.ts, services.ts kept as
                           historical seed reference only — not read at runtime
 lib/
@@ -80,7 +86,8 @@ lib/
   projects.ts, skills.ts, services.ts   Public reads — Supabase, RLS-scoped
   service-icons.ts, skill-categories.ts Controlled maps (icon ids, category colors)
 hooks/                    use-local-storage, use-crt-mode, use-cursor-trail, use-sound,
-                          use-unsaved-changes-warning
+                          use-unsaved-changes-warning (beforeunload),
+                          use-dirty-form-guard (full admin nav + back/forward guard)
 types/                    Shared TypeScript types (incl. hand-written Supabase types)
 supabase/migrations/      SQL to run manually in the Supabase SQL editor
 docs/                     Project documentation and handoff state
@@ -153,6 +160,23 @@ reordering for projects, skills (scoped to category), and services — no
 new dependency. Every admin form now warns before an unsaved change is
 lost, without ever warning about the cover image (which already saves
 independently).
+
+**Phase 11 — Unsaved Changes Navigation Guard** · Fixed the Phase 10
+known limitation: dirty admin forms are now protected against
+`AdminNav` link clicks and the browser back/forward buttons, not just
+tab close/refresh and the form's own Cancel button. A new
+`UnsavedChangesProvider` (wraps `/admin`'s layout) holds one shared
+dirty flag; `useDirtyFormGuard` (used by all three forms in place of
+the old `useUnsavedChangesWarning` call) registers it, keeps the
+existing `beforeunload` protection, and guards back/forward with a
+sentinel `history.pushState` + `popstate` listener (no App Router
+navigation-blocking API exists, so this is the standard SPA pattern —
+see `docs/PROJECT_STATE.md` for its exact, documented limitation).
+`GuardedLink` (`next/link` drop-in) replaces `AdminNav`'s links and
+checks the shared dirty flag before navigating. Every discard
+confirmation — `AdminNav`, back/forward, and each form's Cancel button
+— now goes through one shared, accessible `Modal`-based dialog instead
+of `window.confirm()`. No new dependency, no database migration.
 
 ## Next Steps
 

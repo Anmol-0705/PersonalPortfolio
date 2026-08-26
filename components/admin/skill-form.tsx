@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { NeoCard } from "@/components/ui/neo-card";
 import { neoButtonClasses } from "@/components/ui/neo-button";
 import { KNOWN_SKILL_CATEGORIES } from "@/lib/skill-categories";
-import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
+import { useDirtyFormGuard } from "@/hooks/use-dirty-form-guard";
+import { useUnsavedChangesContext } from "@/components/admin/unsaved-changes-provider";
 import { createSkill, updateSkill } from "@/lib/admin/skill-actions";
 import type { SkillFormInput } from "@/lib/admin/skill-actions";
 import type { Skill } from "@/types/skill";
@@ -32,17 +33,19 @@ export function SkillForm({ mode, skill, nextSortOrder }: SkillFormProps) {
   const [justSaved, setJustSaved] = useState(false);
 
   const isDirty = !justSaved && JSON.stringify(form) !== JSON.stringify(initialForm);
-  useUnsavedChangesWarning(isDirty);
+  useDirtyFormGuard(isDirty);
+  const { confirmDiscard } = useUnsavedChangesContext();
 
   function updateField<K extends keyof SkillFormInput>(key: K, value: SkillFormInput[K]) {
     setForm((previous) => ({ ...previous, [key]: value }));
   }
 
   function handleCancel() {
-    if (isDirty && !window.confirm("You have unsaved changes. Leave without saving?")) {
+    if (!isDirty) {
+      router.push("/admin/skills");
       return;
     }
-    router.push("/admin/skills");
+    confirmDiscard(() => router.push("/admin/skills"));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {

@@ -5,30 +5,201 @@ across development phases. Update it whenever a phase completes.
 
 ## Current Phase
 
-Phase 10 — Admin CMS Polish
+Phase 11 — Unsaved Changes Navigation Guard
 
 ## Phase Status
 
-**CODE IMPLEMENTED, VALIDATED. LIVE CLICK-THROUGH NOT YET PERFORMED BY
-THIS SESSION.** No database migration is required for this phase — it
-builds entirely on the `projects`/`skills`/`services` schema already in
-place (Phases 7–9, confirmed live by the site owner before this phase
-started). `npm run lint` and `npm run build` both pass. Route-level
-smoke testing (below) was performed against the live dev server; full
-admin interaction (search/filter, bulk actions, reordering, unsaved-changes
-prompts) needs the site owner's follow-up, as this session has no
-browser tool or admin credentials — the same limitation stated in every
-prior phase's record.
+**CODE IMPLEMENTED. `npm run lint` and `npm run build` both pass. LIVE
+AUTHENTICATED CLICK-THROUGH NOT PERFORMED BY THIS SESSION** — no
+browser tool or admin credentials, the same limitation stated in every
+prior phase's record. No database migration was required or made; this
+phase is entirely admin-UI navigation logic.
 
 ## Last Updated
 
-2026-08-26
+2026-08-26 (Phase 11)
 
 ## Current Branch
 
 main
 
-## Live Verification Performed (this session)
+## Phase 11 Summary
+
+Fixed Phase 10's stated known limitation: dirty admin forms were only
+protected against tab close/refresh (`beforeunload`) and their own
+Cancel button — `AdminNav` link clicks and the browser back/forward
+buttons could silently discard unsaved changes. Phase 11 closes both
+gaps with one reusable architecture, without touching the database,
+RLS, or `is_admin()`.
+
+### Architecture
+
+- **`components/admin/unsaved-changes-provider.tsx`** — `UnsavedChangesProvider`
+  (client component) is the single source of truth for "is the current
+  admin form dirty," wrapping `app/admin/(dashboard)/layout.tsx`'s
+  `children` (so it's live on every `/admin/*` page, including
+  `AdminNav`, which renders on every one of them). Holds a
+  `isDirtyRef` (synchronous read, safe inside a click handler — a React
+  state value would be stale by one render inside `onClick`), a
+  `setDirty()` setter forms call, and `confirmDiscard(onDiscard, onStay?)`,
+  which opens one shared "Discard unsaved changes?" dialog built on the
+  existing `Modal` component (reused, not reimplemented — see
+  Accessibility below) and only runs `onDiscard` (clearing the dirty
+  flag) if the admin confirms; `onStay` (optional) runs if they don't,
+  so a caller can re-arm anything it set up (used by the back/forward
+  guard, below).
+- **`hooks/use-dirty-form-guard.ts`** — `useDirtyFormGuard(isDirty)` is
+  what each form calls (replacing the old direct
+  `useUnsavedChangesWarning(isDirty)` call, which it still calls
+  internally — tab close/refresh protection is unchanged and not
+  regressed). It registers `isDirty` into the shared context on every
+  change and clears it on unmount (no stale dirty state after a
+  successful save routes away, and none after the component unmounts),
+  and separately owns the browser back/forward guard (below).
+- **`components/admin/guarded-link.tsx`** — `GuardedLink` is a drop-in
+  replacement for `next/link`: on click, if the shared context reports
+  the current form dirty, it calls `preventDefault()` and routes the
+  click through `confirmDiscard()` instead of navigating immediately.
+  A modified click (ctrl/cmd/shift/alt or non-primary button — "open in
+  new tab") is left alone, since it doesn't navigate the current page
+  and losing nothing is at risk. `AdminNav` (`components/admin/admin-nav.tsx`)
+  now renders `GuardedLink` instead of `Link` for its four section
+  links — `AdminNav` itself still doesn't know anything about any
+  form's internal state; it only consults the shared context, exactly
+  as the brief asked.
+- **Cancel buttons** (`project-form.tsx`/`skill-form.tsx`/`service-form.tsx`)
+  now call `confirmDiscard()` from context instead of `window.confirm()`
+  — one shared, accessible, on-brand dialog for every "leave without
+  saving" path instead of two different UX patterns.
+
+### Browser Back/Forward Behavior
+
+**Documented precisely, not oversold.** Next.js 16's App Router has no
+official navigation-blocking/interception API (verified against
+`node_modules/next/dist/docs/01-app/01-getting-started/04-linking-and-navigating.md`
+— nothing beyond `Link`, prefetching, and the plain
+`history.pushState`/`replaceState` escape hatch; there is no
+Pages-Router-style `router.events`, and no App Router equivalent).
+Browser history navigation cannot be synchronously cancelled the way a
+same-page click can. `useDirtyFormGuard` implements the standard SPA
+workaround instead:
+
+1. The moment a form becomes dirty, it pushes one sentinel history
+   entry on top of the current page (`history.pushState`) — the URL
+   doesn't change, so this is invisible.
+2. Pressing **Back** consumes only that sentinel entry. Since the URL
+   doesn't change, no real navigation happens (and nothing renders
+   differently) — but a `popstate` event fires, which is caught and
+   used to open the same shared discard-confirmation dialog.
+3. **Discard Changes** calls `history.back()` again, replaying the
+   admin's original Back press for real.
+4. **Stay** (or Escape/overlay-click, which route to the same handler)
+   re-pushes the sentinel, re-arming the guard for the next attempt.
+
+**What this means in practice, precisely stated:**
+
+- A dirty form's data is never silently lost to a Back press — the
+  admin always sees the confirmation dialog first.
+- This cannot distinguish an intended **Back** from an intended
+  **Forward** press — both land on the same `popstate` handler, and
+  "Discard" always replays as `history.back()`. In the (unlikely,
+  since a dirty edit only happens after the admin has just arrived at
+  the form) case that they'd pressed Forward instead, this is
+  imprecise — the confirmation still happens either way, so no data is
+  lost, but the resulting navigation is always "back."
+- Pushing the sentinel entry clears any Forward history that existed
+  beyond the current page (an inherent property of `pushState`) — a
+  minor UX cost, not a data-loss risk.
+- If the form is the first entry in the tab's history (e.g. the edit
+  page was opened directly / in a new tab) and the admin discards and
+  presses Back, there is nothing further back to go to — same as any
+  page in that situation; browser-dependent, not specific to this
+  guard.
+
+This is the safest practical behavior achievable without an official
+App Router navigation-blocking API, and matches the pattern used by
+other SPA routers' unsaved-changes guards (e.g. React Router's
+`useBlocker` polyfill) for the same reason: none of them can truly
+cancel `popstate` either.
+
+### Cover Image Architecture — Preserved
+
+`ProjectForm`'s dirty calculation still deliberately excludes
+`coverImageUrl` (only a staged, not-yet-uploaded file counts) — this
+was Phase 10's explicit design because in edit mode the cover image
+saves independently via `ProjectImageUpload`, and including it would
+falsely mark an already-persisted change as unsaved. Phase 11 changed
+*how* that `isDirty` boolean is consumed (`useDirtyFormGuard` instead
+of `useUnsavedChangesWarning` directly) but not the calculation itself
+— verified unchanged in `components/admin/project-form.tsx`.
+
+### Accessibility
+
+The shared discard dialog reuses the existing `Modal` component
+(`components/ui/modal.tsx`) rather than introducing a second modal
+system, so it inherits everything already built and tested there:
+correct `role="dialog"`/`aria-modal`/`aria-labelledby` (unique `useId()`
+per instance), focus moves to the first focusable element on open,
+Tab/Shift+Tab is trapped inside, focus returns to the triggering
+element on close, and background scroll is locked while open. Escape
+and overlay-click both route to the dialog's `onClose`, which this
+dialog wires to **Stay** — the non-destructive default, so an
+accidental Escape/overlay-click can never discard changes. Both
+buttons ("Stay" / "Discard Changes") are plain, clearly labelled
+`<button>`s reachable by Tab, with "Discard Changes" using the
+existing primary button style — no color-only signaling.
+
+### Files Created
+
+- `components/admin/unsaved-changes-provider.tsx`
+- `components/admin/guarded-link.tsx`
+- `hooks/use-dirty-form-guard.ts`
+
+### Files Modified
+
+- `app/admin/(dashboard)/layout.tsx` — wraps `children` in
+  `UnsavedChangesProvider`.
+- `components/admin/admin-nav.tsx` — `Link` → `GuardedLink`.
+- `components/admin/project-form.tsx`,
+  `components/admin/skill-form.tsx`,
+  `components/admin/service-form.tsx` — `useUnsavedChangesWarning` →
+  `useDirtyFormGuard`; Cancel button now calls `confirmDiscard()`
+  instead of `window.confirm()`.
+- `hooks/use-unsaved-changes-warning.ts` — doc comment updated to
+  describe its narrower role now that `useDirtyFormGuard` exists (no
+  behavior change — still exactly one `beforeunload` listener, added
+  only while dirty).
+
+### Dependencies Added
+
+None. Same plain browser APIs (`history.pushState`, `popstate`,
+`beforeunload`) plus the existing React Context and `Modal` component.
+
+### Part 2/3/4 Review (UX, Projects, Skills/Services)
+
+Reviewed `components/admin/projects-admin-list.tsx`,
+`delete-project-button.tsx`, `lib/admin/project-actions.ts`, and the
+skill/service equivalents against the brief's checklist (empty states,
+loading states, mutation feedback, delete confirmations, duplicate-slug
+handling, bulk actions, invalid IDs, unauthorized access). Phase 10
+already implemented distinct empty-vs-filtered-empty states,
+`useTransition`-backed pending states on every mutation, inline
+success/error feedback (`role="status"`/`role="alert"`), Modal-based
+delete confirmations (single and bulk), proactive + `23505`-fallback
+duplicate-slug handling on both create and update, `requireAdmin()` on
+every Server Action (unauthorized access already correctly rejected),
+and `validateIdList()` guarding every bulk action against malformed
+IDs. No genuine defect was found in this pass, so per the brief's
+"fix only genuine problems found" instruction, none of this logic was
+changed — Phase 11's scope is the navigation guard described above.
+
+## Historical: Phase 10 — Admin CMS Polish
+
+The sections below are the unmodified record from when Phase 10 closed
+out, except where marked — its "Unsaved Changes Protection" section is
+superseded by Phase 11 above.
+
+### Live Verification Performed (Phase 10 session)
 
 Against the site owner's own running dev server (confirmed already
 migrated through Phase 9):
@@ -44,9 +215,10 @@ migrated through Phase 9):
 Not independently exercised (needs the site owner, same limitation as
 every prior phase): search/filter combinations, bulk publish/unpublish/
 feature/delete, Move Up/Down reordering for all three resource types,
-and the unsaved-changes confirm/`beforeunload` prompts.
+and the unsaved-changes confirm/`beforeunload` prompts (now superseded
+by Phase 11's fuller guard).
 
-## Phase 10 Summary
+### Phase 10 Summary
 
 `/admin` changed from *being* the project list to a real overview
 dashboard; the full, searchable/filterable/bulk-capable project list
@@ -117,21 +289,20 @@ sees always exactly matches the order `moveProject` computes positions
 against; without it, two projects sharing a `sort_order` value could
 render in a different order than the reorder logic assumed.
 
-### Unsaved Changes Protection
+### Unsaved Changes Protection (Phase 10 record — superseded by Phase 11)
 
 `hooks/use-unsaved-changes-warning.ts` — a `beforeunload` listener,
 added only while a form is dirty, for tab close/refresh. Each of the
 three forms (`project-form.tsx`, `skill-form.tsx`, `service-form.tsx`)
 snapshots its initial state once and compares via `JSON.stringify`
 against current state to compute `isDirty`; the Cancel button
-`window.confirm()`s before navigating away when dirty. **Scope note:**
-this covers tab close/refresh (`beforeunload`) and each form's own
-Cancel button — it does not intercept clicks on `AdminNav` or the
-browser back button, which would require converting `AdminNav` to a
-client component with a shared dirty-state context. That was judged out
-of proportion for this phase given the Cancel button and
-`beforeunload` already cover the two most common "leave without saving"
-paths; see Known Limitations.
+`window.confirm()`s before navigating away when dirty. **Scope note
+(as of Phase 10):** this covered tab close/refresh (`beforeunload`) and
+each form's own Cancel button — it did not intercept clicks on
+`AdminNav` or the browser back button. **Phase 11 closed this gap** —
+see "Phase 11 — Unsaved Changes Navigation Guard" above for the current
+behavior (`AdminNav` and back/forward are now guarded too, and Cancel
+now uses the same shared dialog instead of `window.confirm()`).
 
 `ProjectForm`'s dirty check deliberately excludes `coverImageUrl` — in
 edit mode that value only changes via `ProjectImageUpload`'s own
@@ -663,12 +834,25 @@ NAT64 false positive (see Root Cause above). Alt text
 
 ## Known Limitations
 
+**Phase 11:**
+
+- The browser back/forward guard (see "Browser Back/Forward Behavior"
+  above) cannot distinguish an intended Back press from an intended
+  Forward press — both are treated as Back when discarded. No data is
+  ever silently lost either way; the resulting navigation direction can
+  just be imprecise in the Forward case. This is an inherent constraint
+  of building on `popstate`, not an oversight — the App Router has no
+  API that exposes navigation direction to a blocked handler.
+- Pushing the sentinel history entry (required to intercept Back)
+  clears any existing Forward history for that tab, the moment a form
+  becomes dirty. Minor UX cost, not a correctness or data-loss issue.
+- Live authenticated click-through (the 14-step check list the brief
+  specifies, across all six forms, desktop and mobile) has not been
+  performed by this session — no browser tool or admin credentials,
+  consistent with every prior phase's record.
+
 **Phase 10:**
 
-- Unsaved-changes protection covers `beforeunload` (tab close/refresh)
-  and each form's own Cancel button, but not `AdminNav` link clicks or
-  the browser back button — see "Unsaved Changes Protection" above for
-  why, and reconsider if this proves to matter in practice.
 - All Phase 10 admin interactions (search/filter, bulk actions,
   reordering for all three resource types, unsaved-changes prompts)
   need the site owner's live click-through — this session has no
@@ -714,10 +898,12 @@ NAT64 false positive (see Root Cause above). Alt text
 
 ## Next Phase
 
-Immediate: the site owner click-tests Phase 10's admin UX end to end
-(search/filter, bulk actions, reordering for projects/skills/services,
-unsaved-changes prompts) and reports back — this is verification of
-already-implemented code, not new development.
+Immediate: the site owner click-tests Phase 11's navigation guard end
+to end (AdminNav clicks, browser back/forward, Cancel, across all six
+forms, desktop and mobile — the exact checklist in this phase's brief)
+and reports back, along with the still-outstanding Phase 10 admin UX
+click-through (search/filter, bulk actions, reordering) — this is
+verification of already-implemented code, not new development.
 
 Beyond that, no specific next phase has been assigned. Candidates still
 open: a lightweight boot/loading sequence, deeper homepage content/SEO

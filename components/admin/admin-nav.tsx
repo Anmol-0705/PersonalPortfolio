@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { GuardedLink } from "@/components/admin/guarded-link";
 import { cn } from "@/lib/utils";
 
 export type AdminNavSection = "dashboard" | "projects" | "skills" | "services";
@@ -14,7 +14,7 @@ export function AdminNav({ current }: { current: AdminNavSection }) {
   return (
     <nav aria-label="Admin sections" className="flex flex-wrap gap-2">
       {LINKS.map((link) => (
-        <Link
+        <GuardedLink
           key={link.section}
           href={link.href}
           aria-current={link.section === current ? "page" : undefined}
@@ -26,7 +26,7 @@ export function AdminNav({ current }: { current: AdminNavSection }) {
           )}
         >
           {link.label}
-        </Link>
+        </GuardedLink>
       ))}
     </nav>
   );
