@@ -27,9 +27,9 @@ export const siteConfig: SiteConfig = {
   role: "Full Stack Developer & UI/UX Specialist",
   experience: "3+ years",
   projectsDelivered: "20+",
-  location: "Haryana, India",
+  location: "Coimbatore, India",
   availability: "Open to Remote Worldwide",
-  email: "anmolthakur2820@gmail.com",
+  email: "anmolsamualk@gmail.com",
   repository: "PersonalPortfolio",
   nav: [
     { label: "Home", href: "/" },
