@@ -7,21 +7,24 @@ modern, premium foundation.
 
 ## Status
 
-**Phase 12 — Production Metadata and Portfolio Polish: code complete,
-pending your live/production verification.** The site now has a real
-metadata architecture (per-route titles/descriptions, Open Graph +
-Twitter cards, canonical URLs, dynamic project metadata using real
-Supabase data), a code-generated favicon/app-icon/OG-image identity
-(replacing the default Next.js favicon), `robots.txt` + `sitemap.xml`
-(published projects only, admin routes disallowed), friendly public
-error/404 boundaries, and one confirmed, fixed correctness bug: an
-unknown project URL was returning HTTP 200 instead of 404 ("soft
-404") — root-caused and fixed, see "Phase 12" in
-[`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for the full story
-and exactly what still needs your production configuration (the real
-site URL, in particular). Phases 1–11 (Supabase-backed content, admin
-CMS, unsaved-changes navigation guard) are confirmed working live. See
-`docs/PROJECT_STATE.md` for the full record.
+**Phase 13 — Production Deployment & Launch Preparation: repository is
+deploy-ready, but no deployment has happened yet.** This phase audited
+the codebase for Vercel/Supabase/Resend production readiness, produced
+the required environment variable list and dashboard configuration
+steps, and made one small code improvement: `lib/site-url.ts` now
+falls back to Vercel's own assigned `*.vercel.app` production URL when
+`NEXT_PUBLIC_SITE_URL` isn't set, so metadata/sitemap/robots resolve
+correctly from the very first deploy with no domain decision required.
+**Nothing was actually deployed or verified live** — this session has
+no Vercel/Supabase/Resend account access. See "Phase 13" in
+[`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for the full audit,
+the env var table, exact dashboard steps, and a production verification
+checklist for after you deploy. Phases 1–12 (Supabase-backed content,
+admin CMS, unsaved-changes navigation guard, production metadata/SEO)
+are code-complete and confirmed working live through Phase 11; Phase
+12's metadata/SEO work is code-verified locally but not yet checked
+against a live deployment either. See `docs/PROJECT_STATE.md` for the
+full record.
 
 ## Tech Stack
 
@@ -45,7 +48,11 @@ Copy `.env.example` to `.env.local` and fill in real values (never commit
 | `RESEND_API_KEY`                         | Resend API key — required for email delivery                |
 | `RESEND_FROM_EMAIL`                      | Verified sender address (or Resend's sandbox sender)         |
 | `CONTACT_TO_EMAIL`                       | Inbox that receives contact/quote requests                   |
-| `NEXT_PUBLIC_SITE_URL`                   | Real production URL — used for `metadataBase`, OG/Twitter image URLs, canonical links, sitemap, and robots.txt. Falls back to `http://localhost:3000` if unset — **must** be set in production. |
+| `NEXT_PUBLIC_SITE_URL`                   | Real production URL — used for `metadataBase`, OG/Twitter image URLs, canonical links, sitemap, and robots.txt. **Optional on Vercel** (auto-detects the assigned `*.vercel.app` domain via `VERCEL_PROJECT_PRODUCTION_URL` if unset); set explicitly once a custom domain is attached, or always on a non-Vercel host. Falls back to `http://localhost:3000` in local dev. |
+
+See "Phase 13 Summary" in [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md)
+for the full list of what to set in Vercel's dashboard, plus Supabase
+and Resend production configuration notes.
 
 The Supabase secret/service-role key is intentionally never used by this
 app — every admin operation runs through the logged-in user's session,
@@ -211,10 +218,25 @@ errors now use `role="alert"` so they're announced to screen readers,
 not just exposed via `aria-describedby`. No other admin-CMS or
 Supabase-facing behavior changed.
 
+**Phase 13 — Production Deployment & Launch Preparation** · Audited
+the repository for Vercel/Supabase/Resend production readiness (env
+vars, auth flow, image config, Resend sender behavior — see
+`docs/PROJECT_STATE.md` for the full findings) and confirmed the
+architecture from Phases 1–12 needs no changes to deploy. One code
+change: `lib/site-url.ts` now falls back to Vercel's own
+`VERCEL_PROJECT_PRODUCTION_URL` when `NEXT_PUBLIC_SITE_URL` is unset,
+so metadata/sitemap/robots resolve correctly on the assigned
+`*.vercel.app` domain from the first deploy — no custom domain
+decision required to launch. **No deployment was performed** — this
+session has no Vercel/Supabase/Resend dashboard access; see "Phase 13
+Summary" in `docs/PROJECT_STATE.md` for the exact environment variable
+list, Supabase/Resend configuration steps, and a production
+verification checklist to run through after deploying.
+
 ## Next Steps
 
-A lightweight boot/loading sequence or deeper homepage polish pass — no
-further phase has been started. See "Production Configuration
-Required" in `docs/PROJECT_STATE.md` for what still needs the site
-owner's action before a real production deploy (principally: setting
-`NEXT_PUBLIC_SITE_URL`).
+Deploy to Vercel and work through Phase 13's production verification
+checklist (`docs/PROJECT_STATE.md`). Once a custom domain is chosen,
+set `NEXT_PUBLIC_SITE_URL` explicitly. Beyond that: a lightweight
+boot/loading sequence, deeper homepage polish, or automated test
+coverage — no further phase has been started.

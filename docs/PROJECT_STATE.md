@@ -5,29 +5,294 @@ across development phases. Update it whenever a phase completes.
 
 ## Current Phase
 
-Phase 12 — Production Metadata and Portfolio Polish
+Phase 13 — Production Deployment & Launch Preparation
+
+**Naming note:** the brief that requested this phase called it "Phase
+12" — but Phase 12 (Production Metadata and Portfolio Polish) was
+already completed and recorded before this phase started (see
+Historical below, commit `30eb873`). This document numbers phases
+sequentially from the actual repository/commit history, not from a
+label in any single prompt, per this project's own standing
+instruction to treat the current repository as the source of truth
+when documentation/prompt numbering and code history disagree.
 
 ## Phase Status
 
-**CODE IMPLEMENTED. `npm run lint` and `npm run build` both pass. Code-level
-verification performed against a local production build (`npm run
-build && npm run start`) for sitemap/robots/metadata/icons and the 404
-fix below. LIVE BROWSER/PRODUCTION TESTING NOT PERFORMED BY THIS
-SESSION** — no browser tool, no production deployment, the same
-limitation stated in every prior phase's record. No database migration
-was required or made. One real bug found and fixed during this
-phase's own validation — see "Root Cause: Soft 404 on Unknown
-Projects" below.
+**CODE-SIDE PREPARATION COMPLETE. `npm run lint` and `npm run build`
+both pass.** This phase is a deployment, not a feature — most of its
+substance is dashboard configuration (Vercel/Supabase/Resend) and live
+verification that only the site owner can perform, since this session
+has no Vercel/Supabase/Resend account access and no browser tool.
+**NO PRODUCTION DEPLOYMENT HAS BEEN PERFORMED OR VERIFIED BY THIS
+SESSION.** What follows is the audit, the required environment
+variable list, the exact dashboard steps, and a verification checklist
+— see "Production Deployment Guide" below for the full record, and its
+own "Stop Condition / What This Session Did Not Do" section for an
+explicit, honest split of done-vs-owner-action-required.
+
+The user was asked and confirmed: (1) no custom domain is chosen yet —
+deploy to Vercel's assigned `*.vercel.app` domain for now, and (2) this
+session prepares configuration/checklists for the owner to execute,
+rather than attempting an interactive `vercel login`/CLI deploy from
+here.
 
 ## Last Updated
 
-2026-08-26 (Phase 12)
+2026-08-26 (Phase 13)
 
 ## Current Branch
 
 main
 
-## Phase 12 Summary
+## Phase 13 Summary
+
+Audited the repository for production-deployment readiness and made
+one small, genuine code improvement (below); everything else is
+configuration the site owner performs in the Vercel/Supabase/Resend
+dashboards, which this session cannot do from here. No feature,
+Supabase schema, RLS, or admin-CMS behavior was touched.
+
+### Part 1 — Pre-Deployment Audit
+
+Reviewed `package.json` (Next 16.3.3, no `engines` pin, standard
+`next build`/`next start`/`next lint` scripts — zero-config-compatible
+with Vercel), `.gitignore` (`.env*` excluded, `.env.example` allowed
+through, `.vercel` already ignored), `.env.example`, every
+`process.env.*` read in the codebase, `next.config.ts`,
+`lib/site-url.ts`, `lib/supabase/{client,server,middleware}.ts`,
+`proxy.ts`, and `lib/contact-email.ts`. Findings:
+
+- **Auth is pure email/password.** `components/admin/login-form.tsx`
+  calls `supabase.auth.signInWithPassword()` only — grepped the whole
+  repo for `resetPasswordForEmail`, `signInWithOAuth`, `signInWithOtp`,
+  and any magic-link pattern: no matches. This matters because
+  Supabase's "Site URL"/"Redirect URLs" auth settings only govern
+  email-link-based flows (OAuth callbacks, magic links, password
+  resets) — **none of which this app has** — so an unset or
+  wrong Site URL cannot break admin login. It's still worth setting
+  correctly (see Part 3) as standing hygiene and in case a
+  password-reset flow is ever added later, but it is not a launch
+  blocker the way it would be for an OAuth-based app.
+- **No service-role key anywhere** (re-confirmed via the same grep
+  used in Phase 12) — every Supabase client (`lib/supabase/client.ts`,
+  `server.ts`, `middleware.ts`) uses only
+  `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+  Both are intentionally public (RLS enforces access control), so
+  there is nothing to hide about them being `NEXT_PUBLIC_`-prefixed.
+- **`next.config.ts`'s `images.remotePatterns`** is scoped to one
+  literal Supabase Storage hostname
+  (`zlipdsnwsxvfiwnyzfxn.supabase.co`). If production uses this same
+  Supabase project (the expected case — nothing in this phase's brief
+  suggested otherwise), no change is needed. **Flagging, not
+  changing:** if a *separate* production Supabase project is ever
+  created later, this hostname (and the `NEXT_PUBLIC_SUPABASE_URL`
+  env var) would both need updating together, or image loading would
+  break in production while everything else kept working — an easy
+  thing to miss since the failure mode (broken cover images only)
+  wouldn't be obvious from a passing build.
+- **`images.dangerouslyAllowLocalIP: true`** (the Phase 8 NAT64
+  workaround) — **not removed, not proven unnecessary.** It's
+  specific to this development machine's DNS64/NAT64 resolution and
+  is harmless in production (Vercel's build/runtime network doesn't
+  resolve `*.supabase.co` through NAT64), but per this phase's own
+  explicit instruction not to remove it without proof, and since this
+  session cannot test a real production network path, it was left
+  exactly as-is.
+- **Resend sandbox sender may already work in production as
+  configured**, without a verified custom domain: `RESEND_FROM_EMAIL`
+  in `.env.example` defaults to the sandbox address
+  (`onboarding@resend.dev`), which Resend restricts to delivering only
+  to the sending account's own verified email — and `CONTACT_TO_EMAIL`
+  is already that same address (`anmolthakur2820@gmail.com`, also
+  `lib/contact-email.ts`'s fallback via `siteConfig.email` if the env
+  var is ever unset). So contact-form delivery can work in production
+  on day one with zero Resend domain configuration; the only reason to
+  verify a custom domain is a branded `From:` address instead of
+  `onboarding@resend.dev`. See Part 4 below.
+- **`CONTACT_TO_EMAIL` is technically optional** — `lib/contact-email.ts`
+  already falls back to `siteConfig.email` if unset — but should be
+  set explicitly in production for clarity, matching every other
+  required var.
+
+### Part 1 — Required Production Environment Variables
+
+Set these in the Vercel project's Environment Variables settings
+(**Production** environment at minimum; also **Preview** if PR
+previews should work against the same Supabase project):
+
+| Variable | Required? | Value |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | **Required** | The existing Supabase project URL — same one already in local `.env.local`. |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | **Required** | The existing Supabase publishable/anon key — same one already in local `.env.local`. |
+| `RESEND_API_KEY` | **Required** for contact form delivery | The existing Resend API key. |
+| `RESEND_FROM_EMAIL` | **Required** for contact form delivery | Can stay as the sandbox sender (`Portfolio <onboarding@resend.dev>`) — see Part 4 for the trade-off — or a verified custom-domain address. |
+| `CONTACT_TO_EMAIL` | Recommended (has a code fallback) | `anmolthakur2820@gmail.com`, or wherever contact requests should land. |
+| `NEXT_PUBLIC_SITE_URL` | **Optional on Vercel** | Leave unset for now, per the owner's decision this phase — `lib/site-url.ts` automatically falls back to Vercel's own `VERCEL_PROJECT_PRODUCTION_URL` (see below). Set explicitly once a custom domain is attached. |
+
+**No other environment variable is read anywhere in this codebase** —
+confirmed by grepping every `process.env.` reference in the repo. In
+particular, there is no `SUPABASE_SERVICE_ROLE_KEY` or equivalent to
+set, by design (see Phase 7/8's security architecture, unchanged).
+
+### Code Change: Automatic Site URL on Vercel
+
+**`lib/site-url.ts`** — `getSiteUrl()` now checks, in order: (1) an
+explicit `NEXT_PUBLIC_SITE_URL`, (2) Vercel's own
+`VERCEL_PROJECT_PRODUCTION_URL` (set automatically by Vercel on every
+deploy to the project's stable `*.vercel.app` production domain — no
+one has to know or hardcode it), (3) `http://localhost:3000` for local
+dev. This directly answers the owner's "no custom domain chosen yet"
+decision: metadata/sitemap/robots will correctly use the real
+`*.vercel.app` URL from the very first deploy, with zero configuration,
+and `NEXT_PUBLIC_SITE_URL` only needs to be set later if/when a custom
+domain replaces it. `VERCEL_PROJECT_PRODUCTION_URL` is not
+`NEXT_PUBLIC_`-prefixed and therefore isn't readable from client code —
+confirmed safe because every caller of `getSiteUrl()` is server-only
+(`app/layout.tsx`'s `metadata` export, `app/sitemap.ts`, `app/robots.ts`,
+`app/projects/[slug]/page.tsx`'s `generateMetadata` — grepped to
+confirm no `"use client"` file imports it).
+
+### Part 2 — Deployment Configuration
+
+No `vercel.json` was added — Next.js App Router projects are
+zero-config on Vercel (build command, output, and routing are
+auto-detected from `next build`), and nothing in this repo needs a
+custom Vercel configuration (no custom headers/redirects/rewrites
+beyond what `next.config.ts`/`proxy.ts` already express in-app). No
+`engines` field was added to `package.json` — Vercel's default Node
+runtime is compatible with Next 16.3.3, and pinning it wasn't a
+problem this audit found.
+
+**Production build verified locally** (`npm run build`) — passes clean,
+same result as Phase 12's validation, confirming this phase's one code
+change (`lib/site-url.ts`) didn't regress the build.
+
+### Part 3 — Supabase Production Configuration
+
+Because auth here is email/password only (see Part 1's audit finding),
+the *strictly required* Supabase-side configuration for admin login to
+work in production is: **none** — the existing project's API URL and
+publishable key are already what's being set as env vars above, and
+`signInWithPassword` doesn't consult Site URL/Redirect URLs at all.
+
+**Recommended anyway** (standing hygiene, and future-proofing in case a
+password-reset or magic-link flow is ever added):
+
+1. In the Supabase dashboard → **Authentication → URL Configuration**:
+   - Set **Site URL** to the real production URL once known (the
+     `*.vercel.app` domain, or a custom domain later).
+   - Add the production URL (and `http://localhost:3000`) to
+     **Redirect URLs** so both environments keep working side by side.
+2. No new admin user setup is needed — `0000_ensure_admin_user.sql`
+   already ran (Phase 8), and admin/RLS architecture is unchanged by
+   this phase.
+3. If production uses the *same* Supabase project as local dev (the
+   expected setup, per this audit), there is nothing else to
+   configure — the same RLS policies, `is_admin()`, and data already
+   apply. If a *separate* production Supabase project is ever created
+   instead, every migration in `supabase/migrations/` (0000–0007)
+   would need to be re-run there in order, and `next.config.ts`'s
+   `images.remotePatterns` hostname would need updating — flagged in
+   Part 1, not something this phase assumed or built for.
+
+### Part 4 — Resend Production Configuration
+
+The contact form's server-side behavior
+(`app/api/contact/route.ts`/`lib/contact-email.ts`) is **unchanged** by
+this phase: validate → honeypot → rate limit → `resend.emails.send()`
+→ success only returned to the client after a confirmed non-error
+response. Nothing here needed fixing.
+
+Two viable production configurations, in increasing order of setup:
+
+1. **No changes** — keep `RESEND_FROM_EMAIL` as the sandbox sender.
+   Works today because `CONTACT_TO_EMAIL` is the same address as the
+   Resend account owner's, which Resend's sandbox restriction
+   explicitly allows. The visible trade-off: recipients see
+   `From: Portfolio <onboarding@resend.dev>`, not a branded address.
+2. **Verify a custom domain** in the Resend dashboard (Domains →
+   Add Domain → add the DNS records Resend provides), then set
+   `RESEND_FROM_EMAIL` to an address on that domain (e.g.
+   `Anmol Kumar <hello@yourdomain.com>`). Only worth doing once a real
+   domain exists — not required to launch.
+
+### Part 5 — Production Verification Checklist
+
+**This session cannot execute any of the following — no deployed URL,
+no browser tool, no dashboard access.** This is the checklist for the
+site owner (or whoever deploys) to run through after deploying, in the
+order that makes debugging easiest if something fails:
+
+**Deploy & SEO endpoints:**
+- [ ] Vercel build succeeds and the assigned `*.vercel.app` URL loads
+- [ ] `/sitemap.xml` — loads, lists real published projects only, no `/admin`
+- [ ] `/robots.txt` — `Disallow: /admin`, correct `Sitemap:` URL (not `localhost`)
+- [ ] `/manifest.webmanifest`, favicon (browser tab), apple-touch-icon (iOS "Add to Home Screen")
+- [ ] Open Graph image — paste the production URL into a link-preview
+      tool (e.g. paste into a Slack/Discord message, or an OG-preview
+      site) and confirm the generated image renders
+
+**Public site:**
+- [ ] Homepage, `/about`, `/projects`, `/services`, `/contact` all load
+- [ ] A real project's case study page loads with correct data/cover image
+- [ ] An unknown project slug returns a real 404 (not a soft 200 — the
+      exact bug fixed in Phase 12; worth re-confirming on the real
+      production network path, not just this session's local build)
+- [ ] Terminal opens, `projects`/`skills`/`services` commands show real data
+- [ ] Contact form: submit a real message and **confirm the email
+      actually arrives** at `CONTACT_TO_EMAIL` — this session did not
+      send a test email (no explicit permission requested this phase,
+      consistent with Phase 12)
+
+**Admin:**
+- [ ] `/admin` without a session redirects to `/admin/login` (proxy protection live)
+- [ ] Admin login with real credentials succeeds
+- [ ] Create/edit/delete a project, skill, and service
+- [ ] Cover image upload/replace/remove persists and renders publicly
+- [ ] Publish/unpublish and Featured toggle correctly change public visibility
+- [ ] Unsaved-changes guard (Phase 11) still works: AdminNav click, back button, Cancel
+
+**Mobile:**
+- [ ] 375px viewport: navbar/mobile menu, homepage sections, admin
+      dashboard usable — no prior phase claims this was verified with
+      an actual browser tool; still outstanding
+
+### Files Modified
+
+- `lib/site-url.ts` — Vercel `VERCEL_PROJECT_PRODUCTION_URL` fallback
+  (see "Code Change" above).
+- `.env.example` — clarified `NEXT_PUBLIC_SITE_URL` is optional on
+  Vercel until a custom domain is attached.
+- `README.md`, `docs/PROJECT_STATE.md` — this phase's record.
+
+### Dependencies Added
+
+None.
+
+### Database / Migrations
+
+None required, none made — this phase is deployment configuration
+only.
+
+### Stop Condition / What This Session Did Not Do
+
+Per this phase's own explicit instruction, stated plainly:
+
+- **Did not** deploy to Vercel — no account access from this session.
+- **Did not** configure any Vercel/Supabase/Resend dashboard setting.
+- **Did not** verify any production URL, sitemap, robots, contact
+  delivery, admin login, or CRUD against a live deployment — none
+  exists yet, from this session's perspective.
+- **Did not** invent, guess, or hardcode a production domain — the
+  owner confirmed none is chosen yet, and the code change above makes
+  that unnecessary for the first deploy regardless.
+- **Did** verify: the local production build passes
+  (`npm run build`/`npm run lint`), the `getSiteUrl()` fallback logic
+  behaves correctly in isolation (unit-style Node script, all three
+  branches), and every environment variable/auth-flow claim above via
+  direct code/grep inspection — not by running the deployed app.
+
+## Historical: Phase 12 — Production Metadata and Portfolio Polish
 
 Made the portfolio production-ready on SEO/metadata/social-sharing/site-identity/
 error-handling axes, without touching Supabase, RLS, auth, or the admin
@@ -341,7 +606,7 @@ done from code alone):**
 - Admin authentication and image upload — unchanged by this phase;
   last confirmed live in Phases 8–11.
 
-## Phase 11 Summary
+## Historical: Phase 11 — Unsaved Changes Navigation Guard
 
 Fixed Phase 10's stated known limitation: dirty admin forms were only
 protected against tab close/refresh (`beforeunload`) and their own
@@ -1152,6 +1417,27 @@ NAT64 false positive (see Root Cause above). Alt text
 
 ## Known Limitations
 
+**Phase 13:**
+
+- **No production deployment exists yet.** Every item in this phase's
+  "Production Verification Checklist" (see "Phase 13 Summary" above)
+  is outstanding until the site owner deploys to Vercel and works
+  through it — this session has no Vercel/Supabase/Resend dashboard
+  access and no browser tool, so none of it could be executed here.
+- `images.dangerouslyAllowLocalIP: true` was deliberately left
+  unchanged — this session cannot prove it's unnecessary on Vercel's
+  network without a real deployment to test against, and removing a
+  workaround without proof was explicitly out of scope this phase.
+- If production ever uses a *different* Supabase project than local
+  dev (not the case today), `next.config.ts`'s `images.remotePatterns`
+  hostname would need updating alongside the env vars — flagged in the
+  audit, not something currently broken.
+- Resend is left on the sandbox sender (`onboarding@resend.dev`) by
+  default, which works for delivery to `CONTACT_TO_EMAIL` today but
+  shows an unbranded `From:` address — upgrading to a verified custom
+  domain is optional, documented in "Part 4" above, not done this
+  phase (no domain existed to verify).
+
 **Phase 12:**
 
 - `/projects` and `/projects/[slug]` deliberately have **no**
@@ -1165,10 +1451,10 @@ NAT64 false positive (see Root Cause above). Alt text
   that one request — modern browsers all use the `<link>` tag and are
   unaffected. If this ever matters (e.g. a legacy consumer), the fix is
   adding back a real `.ico` file.
-- `NEXT_PUBLIC_SITE_URL` must be set in production — see "Production
-  Configuration Required" above. Until it is, every absolute URL this
-  phase generates (metadataBase, OG/Twitter images, canonical links,
-  sitemap, robots.txt's `Sitemap:` line) resolves to `localhost`.
+- `NEXT_PUBLIC_SITE_URL` is now **optional on Vercel** (superseded by
+  Phase 13's `VERCEL_PROJECT_PRODUCTION_URL` fallback in
+  `lib/site-url.ts`) — set it explicitly once a custom domain is
+  attached, or always on a non-Vercel host.
 - Live browser and production testing were not performed this
   phase — no browser tool, no production deployment. See "Validation"
   in this phase's final report (delivered separately) for the exact
@@ -1241,13 +1527,16 @@ NAT64 false positive (see Root Cause above). Alt text
 
 ## Next Phase
 
-Immediate: the site owner (1) sets `NEXT_PUBLIC_SITE_URL` for
-production and redeploys, (2) verifies the sitemap/robots/social-share
-previews resolve correctly on the real domain, and (3) still owes the
-outstanding live click-throughs from Phases 10 and 11 (admin
-search/filter/bulk/reorder, and the unsaved-changes navigation guard)
-— this is verification of already-implemented code, not new
-development.
+Immediate: the site owner deploys to Vercel and works through Phase
+13's "Production Verification Checklist" (SEO endpoints, public site,
+admin, mobile) — this is the actual deployment and its verification,
+which this session could not perform. Once a custom domain is chosen,
+set `NEXT_PUBLIC_SITE_URL` explicitly (optional until then, per the
+Vercel-URL fallback added this phase) and re-verify the sitemap/robots/
+social-share previews on it. The outstanding live click-throughs from
+Phases 10 and 11 (admin search/filter/bulk/reorder, and the
+unsaved-changes navigation guard) are still owed and can be done
+against the same production deploy.
 
 Beyond that, no specific next phase has been assigned. Candidates still
 open: a lightweight boot/loading sequence, deeper homepage content
