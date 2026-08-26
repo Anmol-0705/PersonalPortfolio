@@ -5,46 +5,376 @@ across development phases. Update it whenever a phase completes.
 
 ## Current Phase
 
-Phase 13 — Production Deployment & Launch Preparation
-
-**Naming note:** the brief that requested this phase called it "Phase
-12" — but Phase 12 (Production Metadata and Portfolio Polish) was
-already completed and recorded before this phase started (see
-Historical below, commit `30eb873`). This document numbers phases
-sequentially from the actual repository/commit history, not from a
-label in any single prompt, per this project's own standing
-instruction to treat the current repository as the source of truth
-when documentation/prompt numbering and code history disagree.
+Phase 14 — Social Presence & Connect Layer
 
 ## Phase Status
 
-**CODE-SIDE PREPARATION COMPLETE. `npm run lint` and `npm run build`
-both pass.** This phase is a deployment, not a feature — most of its
-substance is dashboard configuration (Vercel/Supabase/Resend) and live
-verification that only the site owner can perform, since this session
-has no Vercel/Supabase/Resend account access and no browser tool.
-**NO PRODUCTION DEPLOYMENT HAS BEEN PERFORMED OR VERIFIED BY THIS
-SESSION.** What follows is the audit, the required environment
-variable list, the exact dashboard steps, and a verification checklist
-— see "Production Deployment Guide" below for the full record, and its
-own "Stop Condition / What This Session Did Not Do" section for an
-explicit, honest split of done-vs-owner-action-required.
-
-The user was asked and confirmed: (1) no custom domain is chosen yet —
-deploy to Vercel's assigned `*.vercel.app` domain for now, and (2) this
-session prepares configuration/checklists for the owner to execute,
-rather than attempting an interactive `vercel login`/CLI deploy from
-here.
+**CODE IMPLEMENTED. `npm run lint` and `npm run build` both pass.** A
+new `public.social_links` table is required — **not yet run against
+the live database** (this session has no database execution access).
+The app degrades gracefully without it: `getAllSocialLinks()` catches
+the "table not found" error, logs it, and returns `[]`, so every public
+page still renders correctly (the Connect section simply omits itself)
+until the migration is applied. See "Migration Handoff" below for the
+exact file, order, and verification queries. **LIVE AUTHENTICATED
+ADMIN TESTING NOT PERFORMED** — no browser tool, no admin session; see
+"Validation" in this phase's own report for the precise split of
+confirmed vs. not-verified.
 
 ## Last Updated
 
-2026-08-26 (Phase 13)
+2026-08-27 (Phase 14)
 
 ## Current Branch
 
 main
 
-## Phase 13 Summary
+## Phase 14 Summary
+
+Added a fifth Supabase-backed content type — `public.social_links` —
+using the exact same security model as skills/services (`is_admin()`,
+RLS + explicit GRANTs, no service-role key), plus a public-facing
+Connect section, a footer icon row, and a terminal `socials` command,
+all reading from the same table. No personal URLs were invented —
+the table ships empty; the site owner adds real links through
+`/admin/socials`.
+
+### Database Design
+
+**`public.social_links`** (`supabase/migrations/0008_create_social_links_table.sql`):
+`id uuid pk`, `platform text not null` (CHECK-constrained to 13 known
+ids — see below), `label text not null`, `url text not null`,
+`icon text not null` (CHECK-constrained to 18 known ids),
+`enabled boolean not null default true`, `sort_order integer not null
+default 0`, `created_at`/`updated_at timestamptz`.
+
+**No duplicated presentation data**: `icon` is a controlled string, not
+a component — for every platform except `custom` it's derived
+automatically from `platform` (`lib/social-platforms.ts`'s
+`socialPlatformIcon` map) and the admin form never lets it be picked
+directly; only `custom` links get an admin-chosen icon, from a small,
+separate, non-overlapping set (`CUSTOM_SOCIAL_ICON_IDS` in
+`lib/social-icons.ts`) so a custom link's icon can never be mistaken
+for a specific known platform's. Two layers of defense against an
+arbitrary icon string reaching a component, matching
+`public.services.icon`'s existing pattern exactly:
+1. **Database**: CHECK constraints on both `platform` and `icon`.
+2. **Application**: `lib/social-icons.ts` exports a fixed
+   `Record<SocialIconId, LucideIcon>` (`socialIconMap`) — the only
+   place a string becomes an actual icon component.
+
+**Why generic icons, not brand logos**: lucide-react (the icon library
+already in this project — confirmed via `node -e` against the
+installed package) does not ship brand/platform logos — no
+`Github`/`Linkedin`/`Twitter`/`Youtube` exports exist in it. Rather
+than add a second icon dependency (explicitly disallowed this phase),
+every platform maps to a generic Lucide icon instead (e.g. GitHub →
+`Code2`, LinkedIn → `Briefcase`, X/Twitter → `AtSign`, YouTube →
+`Video`) — the same "generic, not literal" approach
+`lib/service-icons.ts` already used for services.
+
+**Email storage model**: for `platform = "email"`, `url` stores a
+**plain email address**, never a `mailto:` URI — chosen (per the
+brief's request to pick one consistent, well-documented model) because
+a plain address is trivial to validate server-side with a regex,
+whereas validating an arbitrary `mailto:` URI's correctness is messier
+and less useful (the whole value would need parsing back out to check
+it's actually an email underneath). The `mailto:` link is constructed
+once, at render time, by the shared `lib/social-link-href.ts` helper —
+every public renderer (Connect section, footer, terminal) calls this
+same function so the email-vs-URL logic exists in exactly one place.
+Documented inline in the migration and in `types/social-link.ts`.
+
+**Platform list** (13, CHECK-constrained): `github`, `linkedin`,
+`email`, `twitter`, `leetcode`, `hackerrank`, `kaggle`, `devto`,
+`medium`, `youtube`, `website`, `resume`, `custom` — exactly the set
+the brief specified, no more.
+
+### RLS and Security
+
+Same admin/public split as every other content table
+(`is_admin()`, RLS + explicit GRANTs — `grant select on
+public.social_links to anon, authenticated; grant insert, update,
+delete ... to authenticated;`), but unlike skills/services (which have
+no draft-like state), social links do have one (`enabled`), so the
+public SELECT policy follows **`public.projects`'s** pattern instead
+of skills/services': one policy, `using (enabled = true or
+public.is_admin())` — RLS alone decides which rows a query returns per
+caller, and application code never manually filters when reading for
+an admin session, matching `lib/projects.ts`'s documented approach.
+
+**Defense in depth, learned from Phase 12's sitemap fix**: every
+public-facing reader of this table (`getEnabledSocialLinks()` in
+`lib/social-links.ts`, and the terminal's `socials` command) filters
+`enabled` again in application code, on top of RLS. Reason: RLS scopes
+by the *request's* session, not by "is this page public chrome" — a
+signed-in admin's own browser, visiting the public homepage/footer in
+the same session that satisfies `is_admin()`, would otherwise see
+their own disabled/draft links leak into what should be a visitor-only
+view. This is the exact same reasoning as `app/sitemap.ts`'s
+published-only filter from Phase 12, applied here for the same class
+of bug. `getAllSocialLinks()` (no filter, RLS-scoped only) is used
+exclusively by `/admin/socials` and the admin dashboard stats, where
+seeing every row — including disabled — is the entire point.
+
+### Admin Management (`/admin/socials`)
+
+Routes matching the existing `/admin/{projects,skills,services}/...`
+convention exactly: `/admin/socials`, `/admin/socials/new`,
+`/admin/socials/[id]/edit`. `AdminNav` (`components/admin/admin-nav.tsx`)
+gained a fifth link — no parallel nav system, the same shared component
+every other section already uses.
+
+**List page** (`app/admin/(dashboard)/socials/page.tsx`): shows every
+link (enabled and disabled), each with its icon, platform, label, URL,
+an `EnabledBadge` (new — `components/admin/status-badges.tsx`, same
+icon+text pattern as `PublishedBadge`, never color alone), Edit,
+Delete, and Move Up/Down. A disabled link's whole card is additionally
+dimmed (`opacity-60`) — two independent non-color signals (badge
+icon+text, and reduced opacity), not one.
+
+**Create/Edit form** (`components/admin/social-link-form.tsx`):
+platform is a `<select>` over the fixed 13-value list
+(`lib/social-platforms.ts`); the icon is shown as read-only derived
+text for every platform except `custom`, which reveals a small
+`role="radiogroup"` of the 6 safe custom icons (same interaction
+pattern `ServiceForm`'s icon picker already used) — an admin can never
+type or otherwise supply an arbitrary icon id. Label and URL are plain
+text inputs (URL becomes `type="email"` with a "plain address, not a
+mailto: link" hint when platform is Email). Sort order is a required
+numeric input defaulting to "append at end" (current row count) on
+create — matching the exact pattern `SkillForm`/`ServiceForm` already
+use (the brief's "unless that matches an existing project pattern"
+condition was satisfied, so no new UX was invented here). "Enabled" is
+the existing `Toggle` component, reused as-is.
+
+**No dedicated quick-enable/disable button** was added (unlike
+Projects' `PublishToggleButton`) — skills and services have no
+equivalent row-level quick toggle either, and adding one only for
+social links would be a new, unprecedented interaction for this one
+resource type rather than reused infrastructure. Enabled/disabled is
+edited through the same form as everything else. Documented as a
+deliberate scope decision, not an oversight — see Known Limitations if
+this proves annoying in practice.
+
+**Reordering**: `lib/admin/reorder.ts`'s `swapSortOrder()` — already
+generalized to accept a `table` parameter — was extended with
+`"social_links"` rather than writing new swap logic; `moveSocialLink()`
+(`lib/admin/social-link-actions.ts`) re-checks `requireAdmin()`,
+re-fetches the deterministically-ordered list server-side, and rejects
+the move if the target has no neighbor, identical in structure to
+`moveService()`.
+
+**Delete safety**: `DeleteSocialLinkButton` reuses the existing `Modal`
+component and the same confirm/cancel/pending-state structure as
+`DeleteProjectButton`/`DeleteServiceButton` — no `window.confirm()`,
+no new modal system. On success, `revalidatePath("/")`,
+`revalidatePath("/admin")`, and `revalidatePath("/admin/socials")` run
+(inside `revalidatePublicRoutes()`, called by every mutating action —
+create/update/move/delete alike), so the homepage Connect
+section/footer and the terminal's next page-load all reflect the
+change — the terminal has no server-persisted state of its own to go
+stale; it re-reads fresh props every time `/` is requested.
+
+### Unsaved Changes Protection
+
+`SocialLinkForm` calls `useDirtyFormGuard` (the Phase 11
+architecture) exactly like `ProjectForm`/`SkillForm`/`ServiceForm` —
+AdminNav clicks, browser back/forward, tab close/refresh, and Cancel
+are all guarded through the existing shared `UnsavedChangesProvider`
+and its Modal-based confirm dialog. No second unsaved-changes system
+was created.
+
+### Public Website Integration
+
+**Connect section** (`components/sections/connect-section.tsx`, new) —
+an async Server Component, same self-fetching pattern as
+`ServicesSection`/`SkillsSection`: calls `getEnabledSocialLinks()`
+directly, returns `null` (renders nothing) when there are zero enabled
+links, so an empty table never leaves a bare heading with nothing
+under it. Each link is styled with the existing `neoButtonClasses`
+button system (not a new NeoCard-based tile — NeoCard's padding
+couldn't be cleanly zeroed out given this project's intentionally
+minimal `cn()` helper has no Tailwind-conflict resolution, so a
+link-styled-as-button was both simpler and already-precedented, e.g.
+`ProjectCaseStudy`'s "Visit Live Site"/"View Code" links). Placed
+between the terminal section and the closing CTA section on the
+homepage (`app/page.tsx`) — the existing homepage has no dedicated
+"Contact" section (contact lives at `/contact`, linked from the CTA
+section), so "Connect → Contact → Footer" from the brief maps to
+"Connect section → CTA section (which links to `/contact`) → Footer."
+
+**Footer** (`components/layout/footer.tsx`) — gained a compact row of
+icon-only links (each with a `title` tooltip and an `aria-label`)
+below the existing name/role line, shown only when at least one link
+is enabled. The existing mailto link and copyright line are completely
+unchanged. `Footer` now takes a `socialLinks` prop instead of fetching
+its own data.
+
+**Root layout change**: `app/layout.tsx`'s `RootLayout` is now `async`
+and calls `getEnabledSocialLinks()` once, passed down to `Footer`.
+Because `getEnabledSocialLinks()` (and `getAllSocialLinks()`
+underneath it) are wrapped in React's `cache()`, the homepage's own
+call to the same function (for the Connect section and to build the
+terminal's data) reuses the layout's already-fetched result within the
+same request instead of issuing a second query — verified by reading
+Next's own streaming-metadata docs' recommended pattern for this exact
+situation (memoizing a function called from two places in one render
+with React `cache()`).
+
+**Accepted trade-off, stated plainly**: since the root layout now
+reads cookies (via the Supabase server client inside
+`getEnabledSocialLinks()`), every route it wraps became dynamically
+rendered instead of statically prerendered — `/about`, `/contact`, and
+`/_not-found` moved from `○ Static` to `ƒ Dynamic` in the build output
+(confirmed by comparing this phase's `npm run build` output to Phase
+13's). `/`, `/projects`, `/services`, and every `/admin/*` route were
+already dynamic before this phase (they already read Supabase data),
+so this only affects the few previously-fully-static pages. Negligible
+performance impact at this portfolio's traffic scale — every response
+is still served on-demand by Vercel with no added round trip beyond
+the query itself — but it's a real, honest architectural change, not
+a hidden one.
+
+### Terminal Integration
+
+Preserved the pure-command-function architecture from Phase 6/9:
+`TerminalCommandContext` (`components/terminal/terminal-commands.ts`)
+gained a `socialLinks: SocialLink[]` field, threaded server-side
+exactly like `skillGroups`/`services` were — fetched once in
+`app/page.tsx`, passed through `TerminalSection` → `Terminal` →
+`runTerminalCommand()`. No terminal command imports live data or does
+I/O directly.
+
+New `socials` command (aliases: `social`, `connect`) lists every
+enabled link as `[n] Label`, each rendered as a clickable line (`href`
+support already existed in `OutputLine` — a `mailto:` href already
+renders as a plain external `<a>`, the same as the existing `contact`
+command's email line; no terminal-rendering change was needed). Filters
+`enabled` again inside the command itself, on top of the
+already-enabled-only data it receives — the "never expose a disabled
+link through the terminal" requirement is non-negotiable, so it's
+enforced at both the data-source layer and the command layer rather
+than trusted from one place. `help`'s command list is generated
+dynamically from the command registry, so it picked up `socials`
+automatically — no separate help-text edit was needed.
+
+### SEO and Accessibility
+
+No new SEO metadata was added for social links, per the brief's
+explicit instruction not to. Accessibility specifics: every icon-only
+link (footer) has both `title` (visible tooltip on hover) and
+`aria-label`; every Connect-section link pairs its icon with visible
+text (never icon-only, so no separate label is even needed there, though
+one is still set for the "(opens in a new tab)" external-link
+announcement); every external link uses `target="_blank" rel="noopener
+noreferrer"` and its `aria-label` states that it opens in a new tab;
+keyboard focus is the existing project-wide `focus-visible:[outline:3px_solid_var(--color-focus)]`
+pattern, applied consistently; the empty state (zero enabled links)
+never leaves a bare heading — the whole Connect section, and the
+footer's icon row, both simply don't render.
+
+### Admin Dashboard
+
+Added one stat card ("Social Links", showing total plus an
+`"N enabled · M disabled"` sub-line — all real Supabase-derived
+numbers, nothing fabricated) to the existing "Images, Skills, Services"
+stats section (renamed to include "& Social Links") rather than adding
+a whole new section, and one quick-action link ("+ Add Social Link")
+alongside the existing three. Deliberately not overloaded with more
+metrics than that.
+
+### Files Created
+
+- `supabase/migrations/0008_create_social_links_table.sql`
+- `types/social-link.ts`
+- `lib/social-icons.ts`, `lib/social-platforms.ts`, `lib/social-links.ts`, `lib/social-link-href.ts`
+- `lib/admin/social-link-actions.ts`
+- `components/admin/social-link-form.tsx`, `delete-social-link-button.tsx`, `social-link-move-buttons.tsx`
+- `app/admin/(dashboard)/socials/page.tsx`, `socials/new/page.tsx`, `socials/[id]/edit/page.tsx`
+- `components/sections/connect-section.tsx`
+
+### Files Modified
+
+- `types/supabase.ts` — added the `social_links` table shape.
+- `lib/admin/reorder.ts` — `swapSortOrder()`'s `table` union extended
+  with `"social_links"`.
+- `components/admin/admin-nav.tsx` — added the "Social Links" section.
+- `components/admin/status-badges.tsx` — added `EnabledBadge`.
+- `app/admin/(dashboard)/page.tsx` — social-link stat card + quick action.
+- `app/layout.tsx` — now `async`, fetches `getEnabledSocialLinks()`, passes to `Footer`.
+- `components/layout/footer.tsx` — renders the icon row; now takes a `socialLinks` prop.
+- `app/page.tsx` — fetches social links, passes to `TerminalSection`, renders `ConnectSection`.
+- `components/sections/terminal-section.tsx`, `components/terminal/terminal.tsx`,
+  `components/terminal/terminal-commands.ts` — `socialLinks` threaded through; new `socials` command.
+
+### Dependencies Added
+
+None. Confirmed lucide-react (already installed) has no brand icons
+via direct inspection of its exports, and used only generic icons
+already available in the package.
+
+### Seeding
+
+**Table ships empty.** Per the brief's explicit instruction, no
+personal GitHub/LinkedIn/email/etc. URLs were invented, guessed, or
+seeded — `0008_create_social_links_table.sql` only creates the table,
+RLS, and grants; it inserts no rows. The site owner adds real links
+through `/admin/socials` after the migration runs.
+
+### Migration Handoff — Phase 14 (NOT yet run — this session has no database execution access)
+
+**Run this one file in the Supabase SQL editor:**
+
+1. **`supabase/migrations/0008_create_social_links_table.sql`**
+   Creates `public.social_links`, enables RLS, adds the public-read
+   policy (`enabled = true or is_admin()`), the three admin-write
+   policies, the `platform`/`icon` `CHECK` constraints, and grants the
+   correct table privileges to `anon`/`authenticated`. Nothing to edit
+   first, no seed data, safe to run once.
+
+**Verification queries** (run after, as the project's `postgres`/owner role):
+
+```sql
+-- Table exists, RLS is enabled.
+select relrowsecurity from pg_class where relname = 'social_links';
+-- Expect: t
+
+-- Policies exist (expect 4 rows: one select, one insert, one update, one delete).
+select policyname, cmd from pg_policies where tablename = 'social_links';
+
+-- Grants exist for anon/authenticated (expect anon: SELECT only;
+-- authenticated: SELECT, INSERT, UPDATE, DELETE).
+select grantee, privilege_type
+from information_schema.role_table_grants
+where table_name = 'social_links'
+order by grantee, privilege_type;
+
+-- Table starts empty — confirms no data was seeded/invented this phase.
+select count(*) from public.social_links;
+-- Expect: 0
+```
+
+**Confirm admin can manage records** (run this from `/admin/socials`
+after logging in, not from the SQL editor — the point is exercising
+RLS through the app, not bypassing it): create a test social link,
+confirm it appears in the admin list, edit it, then delete it. All
+three should succeed for an authenticated admin session.
+
+**Confirm the public role cannot see disabled links** — two ways,
+either is sufficient:
+- In the app: create a social link with "Enabled" turned off, then
+  view the homepage in a private/incognito window (no admin session).
+  It should not appear in the Connect section or footer.
+- In SQL, using the anon key specifically (e.g. via `psql` with
+  `set role anon;`, or a fresh anon-key REST request) rather than the
+  SQL editor's default elevated role:
+  ```sql
+  select count(*) from public.social_links where enabled = false;
+  -- Expect: 0 (as anon — the disabled row(s) should not be visible),
+  -- even though the same query as an admin/service context would
+  -- return them.
+  ```
 
 Audited the repository for production-deployment readiness and made
 one small, genuine code improvement (below); everything else is
@@ -1417,6 +1747,41 @@ NAT64 false positive (see Root Cause above). Alt text
 
 ## Known Limitations
 
+**Phase 14:**
+
+- **The `public.social_links` migration has not been run** — see
+  "Migration Handoff — Phase 14" above. Until it is, the table doesn't
+  exist and every social-link feature (Connect section, footer icons,
+  terminal `socials` command, `/admin/socials`) degrades gracefully to
+  "nothing to show" rather than erroring — confirmed by a local
+  production build/start with the real (migration-less) database:
+  homepage still returned `200`, the Connect section correctly
+  rendered nothing, and the real Postgrest "table not found" error was
+  logged server-side, not swallowed.
+- The table ships empty by design — no social links will appear
+  anywhere on the site until the owner adds real ones through
+  `/admin/socials` after running the migration.
+- No row-level quick enable/disable toggle exists for social links
+  (unlike Projects' publish toggle) — flipping "Enabled" requires
+  opening Edit. Deliberate scope decision (see "Admin Management"
+  above), not an oversight; revisit if this proves annoying with many
+  links.
+- **Accepted trade-off**: `/about`, `/contact`, and `/_not-found` moved
+  from statically prerendered to dynamically rendered this phase,
+  because the root layout now reads Supabase data (for the footer) on
+  every request. Documented in full under "Public Website Integration"
+  above. Negligible at this site's scale, but a real, load-bearing
+  architectural change worth knowing about if performance is ever
+  investigated later.
+- Live authenticated admin testing (creating/editing/reordering/deleting
+  a social link through the actual `/admin/socials` UI) was not
+  performed — no browser tool, no admin session, and the underlying
+  table doesn't exist in the database yet regardless.
+- `lucide-react`'s lack of brand/platform icons means every social
+  link's icon is a generic stand-in (e.g. GitHub → a code icon, not an
+  actual GitHub mark) — a deliberate, documented consequence of "do not
+  add another icon dependency," not a bug.
+
 **Phase 13:**
 
 - **No production deployment exists yet.** Every item in this phase's
@@ -1527,16 +1892,18 @@ NAT64 false positive (see Root Cause above). Alt text
 
 ## Next Phase
 
-Immediate: the site owner deploys to Vercel and works through Phase
-13's "Production Verification Checklist" (SEO endpoints, public site,
-admin, mobile) — this is the actual deployment and its verification,
-which this session could not perform. Once a custom domain is chosen,
-set `NEXT_PUBLIC_SITE_URL` explicitly (optional until then, per the
-Vercel-URL fallback added this phase) and re-verify the sitemap/robots/
-social-share previews on it. The outstanding live click-throughs from
-Phases 10 and 11 (admin search/filter/bulk/reorder, and the
-unsaved-changes navigation guard) are still owed and can be done
-against the same production deploy.
+Immediate: the site owner (1) runs
+`supabase/migrations/0008_create_social_links_table.sql` (see
+"Migration Handoff — Phase 14" above) and works through its
+verification queries, (2) logs into `/admin/socials` in production and
+adds their real GitHub/LinkedIn/email/etc. links, then (3) confirms the
+Connect section, footer icons, and terminal `socials` command all
+render correctly on the live site. Beyond that, the site owner still
+owes: deploying to Vercel and working through Phase 13's "Production
+Verification Checklist" (SEO endpoints, public site, admin, mobile),
+setting `NEXT_PUBLIC_SITE_URL` once a custom domain is chosen, and the
+outstanding live click-throughs from Phases 10 and 11 (admin
+search/filter/bulk/reorder, and the unsaved-changes navigation guard).
 
 Beyond that, no specific next phase has been assigned. Candidates still
 open: a lightweight boot/loading sequence, deeper homepage content

@@ -7,24 +7,27 @@ modern, premium foundation.
 
 ## Status
 
-**Phase 13 — Production Deployment & Launch Preparation: repository is
-deploy-ready, but no deployment has happened yet.** This phase audited
-the codebase for Vercel/Supabase/Resend production readiness, produced
-the required environment variable list and dashboard configuration
-steps, and made one small code improvement: `lib/site-url.ts` now
-falls back to Vercel's own assigned `*.vercel.app` production URL when
-`NEXT_PUBLIC_SITE_URL` isn't set, so metadata/sitemap/robots resolve
-correctly from the very first deploy with no domain decision required.
-**Nothing was actually deployed or verified live** — this session has
-no Vercel/Supabase/Resend account access. See "Phase 13" in
-[`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for the full audit,
-the env var table, exact dashboard steps, and a production verification
-checklist for after you deploy. Phases 1–12 (Supabase-backed content,
-admin CMS, unsaved-changes navigation guard, production metadata/SEO)
-are code-complete and confirmed working live through Phase 11; Phase
-12's metadata/SEO work is code-verified locally but not yet checked
-against a live deployment either. See `docs/PROJECT_STATE.md` for the
-full record.
+**Live at [personal-portfolio-lovat-nu-82.vercel.app](https://personal-portfolio-lovat-nu-82.vercel.app)**
+(deployed on Vercel after Phase 13; confirmed by the site owner —
+this repository's own sessions have no browser tool to independently
+verify a live deployment).
+
+**Phase 14 — Social Presence & Connect Layer: code complete, pending
+the database migration and the owner's real social links.** Added a
+new `public.social_links` table (same RLS/`is_admin()` security model
+as skills/services) plus admin management at `/admin/socials`, a
+homepage Connect section, footer social icons, and a terminal
+`socials` command — all reading from the same table, all gracefully
+showing nothing until real links exist. **No personal URLs were
+invented** — the table ships empty; add real GitHub/LinkedIn/email/etc.
+links through `/admin/socials` after running the migration. See
+"Phase 14" in [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for the
+full design, the exact migration to run, and its verification queries.
+Phases 1–13 (Supabase-backed content, admin CMS, unsaved-changes
+navigation guard, production metadata/SEO, deployment prep) are
+code-complete; see `docs/PROJECT_STATE.md` for the full phase-by-phase
+record and what's been confirmed live vs. not yet independently
+verified by this repository's own sessions.
 
 ## Tech Stack
 
@@ -82,7 +85,7 @@ The app runs at `http://localhost:3000`.
 app/
   api/contact/route.ts     Server-side contact/quote email delivery
   admin/                   Private admin panel: dashboard (/admin), then
-                            projects/skills/services list+CRUD+reorder
+                            projects/skills/services/socials list+CRUD+reorder
   sitemap.ts, robots.ts    Generated sitemap.xml / robots.txt (published projects only)
   icon.svg, apple-icon.tsx, opengraph-image.tsx, twitter-image.tsx, manifest.ts
                             Site identity: favicon, app icon, social share image
@@ -98,8 +101,10 @@ data/                     projects.ts, skills.ts, services.ts kept as
 lib/
   supabase/                Browser/server Supabase clients + session refresh
   admin/                   Server Actions (CRUD, bulk ops, reorder) + shared auth/error/validation helpers
-  projects.ts, skills.ts, services.ts   Public reads — Supabase, RLS-scoped
+  projects.ts, skills.ts, services.ts, social-links.ts   Public reads — Supabase, RLS-scoped
   service-icons.ts, skill-categories.ts Controlled maps (icon ids, category colors)
+  social-icons.ts, social-platforms.ts, social-link-href.ts
+                            Controlled social-link icon/platform maps + shared href logic
   site-url.ts              NEXT_PUBLIC_SITE_URL with a local-dev fallback
   og-image.tsx             Shared JSX for the default OG/Twitter share image
 hooks/                    use-local-storage, use-crt-mode, use-cursor-trail, use-sound,
@@ -233,10 +238,31 @@ Summary" in `docs/PROJECT_STATE.md` for the exact environment variable
 list, Supabase/Resend configuration steps, and a production
 verification checklist to run through after deploying.
 
+**Phase 14 — Social Presence & Connect Layer** · Added a fifth
+Supabase-backed content type, `public.social_links`
+(`supabase/migrations/0008_create_social_links_table.sql`, not yet
+run), using the exact same `is_admin()`/RLS/GRANT security model as
+skills and services. Full admin management at `/admin/socials`
+(create/edit/reorder/delete, integrated into the existing `AdminNav`
+and unsaved-changes protection — no parallel systems). Publicly: a new
+homepage Connect section (`components/sections/connect-section.tsx`,
+self-omitting when empty), a compact icon row in the footer, and a new
+terminal `socials` command, all reading the same enabled-only data
+through one shared `lib/social-links.ts`. Icons are controlled,
+CHECK-constrained string ids mapped to *generic* Lucide icons (no
+brand logos — lucide-react doesn't ship any, confirmed by inspection)
+— matching `lib/service-icons.ts`'s existing pattern, no new icon
+dependency. **No personal social URLs were invented** — the table
+ships empty; see "Phase 14" in `docs/PROJECT_STATE.md` for the
+migration to run and its verification queries.
+
 ## Next Steps
 
-Deploy to Vercel and work through Phase 13's production verification
-checklist (`docs/PROJECT_STATE.md`). Once a custom domain is chosen,
-set `NEXT_PUBLIC_SITE_URL` explicitly. Beyond that: a lightweight
+Run `supabase/migrations/0008_create_social_links_table.sql` (see
+"Migration Handoff — Phase 14" in `docs/PROJECT_STATE.md`), then add
+real social links through `/admin/socials`. Beyond that: work through
+Phase 13's production verification checklist if not already done, and
+set `NEXT_PUBLIC_SITE_URL` explicitly once a custom domain is chosen.
+Further candidates: a lightweight
 boot/loading sequence, deeper homepage polish, or automated test
 coverage — no further phase has been started.

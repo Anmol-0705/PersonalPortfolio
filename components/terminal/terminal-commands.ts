@@ -1,7 +1,9 @@
 import type { Project } from "@/types/project";
 import type { Service } from "@/types/service";
 import type { SkillGroup } from "@/types/skill";
+import type { SocialLink } from "@/types/social-link";
 import { siteConfig } from "@/data/site-config";
+import { socialLinkHref } from "@/lib/social-link-href";
 
 export type TerminalTone = "default" | "muted" | "accent" | "error";
 
@@ -21,6 +23,7 @@ export type TerminalCommandContext = {
   projects: Project[];
   skillGroups: SkillGroup[];
   services: Service[];
+  socialLinks: SocialLink[];
 };
 
 export type TerminalCommand = {
@@ -148,6 +151,32 @@ const servicesCommand: TerminalCommand = {
   },
 };
 
+const socialsCommand: TerminalCommand = {
+  name: "socials",
+  aliases: ["social", "connect"],
+  description: "List ways to connect",
+  run: (_args, { socialLinks }) => {
+    // Defense in depth: context.socialLinks is already enabled-only
+    // (threaded from getEnabledSocialLinks() in app/page.tsx), but the
+    // terminal must never surface a disabled link under any
+    // circumstance, so this filters again rather than trusting the
+    // caller.
+    const enabled = socialLinks.filter((link) => link.enabled);
+
+    if (enabled.length === 0) {
+      return print([line("No connections listed yet.", "muted")]);
+    }
+
+    return print([
+      line("AVAILABLE CONNECTIONS", "accent"),
+      ...enabled.flatMap((socialLink, index) => {
+        const { href } = socialLinkHref(socialLink);
+        return [line(`[${index + 1}] ${socialLink.label}`, "default", href)];
+      }),
+    ]);
+  },
+};
+
 const hireCommand: TerminalCommand = {
   name: "hire",
   aliases: [],
@@ -243,6 +272,7 @@ export const terminalCommands: TerminalCommand[] = [
   skillsCommand,
   projectsCommand,
   servicesCommand,
+  socialsCommand,
   hireCommand,
   contactCommand,
   homeCommand,

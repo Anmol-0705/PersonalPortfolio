@@ -9,6 +9,7 @@ import { PublishedBadge, FeaturedBadge } from "@/components/admin/status-badges"
 import { getAllProjects, getRecentProjects } from "@/lib/projects";
 import { getAllSkills } from "@/lib/skills";
 import { getServices } from "@/lib/services";
+import { getAllSocialLinks } from "@/lib/social-links";
 
 export const metadata: Metadata = {
   title: "Admin Dashboard",
@@ -18,10 +19,11 @@ export const metadata: Metadata = {
 const RECENT_PROJECTS_LIMIT = 5;
 
 export default async function AdminDashboardPage() {
-  const [projects, skills, services, recentProjects] = await Promise.all([
+  const [projects, skills, services, socialLinks, recentProjects] = await Promise.all([
     getAllProjects(),
     getAllSkills(),
     getServices(),
+    getAllSocialLinks(),
     getRecentProjects(RECENT_PROJECTS_LIMIT),
   ]);
 
@@ -30,6 +32,7 @@ export default async function AdminDashboardPage() {
   const featuredCount = projects.filter((project) => project.featured).length;
   const withImageCount = projects.filter((project) => project.media?.coverImage).length;
   const skillCategoryCount = new Set(skills.map((skill) => skill.category)).size;
+  const enabledSocialCount = socialLinks.filter((link) => link.enabled).length;
 
   return (
     <div className="flex flex-col gap-8">
@@ -46,6 +49,9 @@ export default async function AdminDashboardPage() {
           </Link>
           <Link href="/admin/services/new" className={neoButtonClasses("secondary", "text-sm")}>
             + Add Service
+          </Link>
+          <Link href="/admin/socials/new" className={neoButtonClasses("secondary", "text-sm")}>
+            + Add Social Link
           </Link>
         </div>
       </div>
@@ -64,13 +70,18 @@ export default async function AdminDashboardPage() {
 
       <section aria-labelledby="content-stats-heading" className="flex flex-col gap-3">
         <h2 id="content-stats-heading" className="font-retro text-lg tracking-wide text-muted">
-          Images, Skills &amp; Services
+          Images, Skills, Services &amp; Social Links
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="With Cover Image" value={withImageCount} />
           <StatCard label="Without Cover Image" value={projects.length - withImageCount} />
           <StatCard label="Total Skills" value={skills.length} sub={`${skillCategoryCount} categories`} />
           <StatCard label="Total Services" value={services.length} />
+          <StatCard
+            label="Social Links"
+            value={socialLinks.length}
+            sub={`${enabledSocialCount} enabled · ${socialLinks.length - enabledSocialCount} disabled`}
+          />
         </div>
       </section>
 

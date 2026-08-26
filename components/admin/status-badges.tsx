@@ -29,6 +29,18 @@ export function FeaturedBadge() {
   );
 }
 
+export function EnabledBadge({ enabled }: { enabled: boolean }) {
+  const Icon = enabled ? CheckCircle2 : Circle;
+  return (
+    <span
+      className={cn(badgeClass, enabled ? "bg-crt-green text-pure-black" : "bg-surface-raised text-muted")}
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      {enabled ? "Enabled" : "Disabled"}
+    </span>
+  );
+}
+
 export function ImageStatusBadge({ hasImage }: { hasImage: boolean }) {
   const Icon = hasImage ? ImageIcon : ImageOff;
   return (

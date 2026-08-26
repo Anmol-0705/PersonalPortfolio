@@ -94,6 +94,32 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["services"]["Insert"]>;
         Relationships: [];
       };
+      social_links: {
+        Row: {
+          id: string;
+          platform: string;
+          label: string;
+          url: string;
+          icon: string;
+          enabled: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          platform: string;
+          label: string;
+          url: string;
+          icon: string;
+          enabled?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["social_links"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -118,3 +144,7 @@ export type SkillUpdate = Database["public"]["Tables"]["skills"]["Update"];
 export type ServiceRow = Database["public"]["Tables"]["services"]["Row"];
 export type ServiceInsert = Database["public"]["Tables"]["services"]["Insert"];
 export type ServiceUpdate = Database["public"]["Tables"]["services"]["Update"];
+
+export type SocialLinkRow = Database["public"]["Tables"]["social_links"]["Row"];
+export type SocialLinkInsert = Database["public"]["Tables"]["social_links"]["Insert"];
+export type SocialLinkUpdate = Database["public"]["Tables"]["social_links"]["Update"];

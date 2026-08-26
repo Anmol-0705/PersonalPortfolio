@@ -14,7 +14,7 @@ export type ReorderResult = { success: true } | { success: false; error: string 
  */
 export async function swapSortOrder(
   supabase: SupabaseClient,
-  table: "projects" | "skills" | "services",
+  table: "projects" | "skills" | "services" | "social_links",
   context: string,
   a: { id: string; sort_order: number },
   b: { id: string; sort_order: number },

@@ -7,6 +7,7 @@ import { RetroControls } from "@/components/retro/retro-controls";
 import { CursorTrail } from "@/components/retro/cursor-trail";
 import { siteConfig } from "@/data/site-config";
 import { getSiteUrl } from "@/lib/site-url";
+import { getEnabledSocialLinks } from "@/lib/social-links";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -46,7 +47,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const socialLinks = await getEnabledSocialLinks();
+
   return (
     <html
       lang="en"
@@ -56,7 +59,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <RetroPreferencesProvider>
           <Navbar />
           <main className="flex-1">{children}</main>
-          <Footer />
+          <Footer socialLinks={socialLinks} />
           <CursorTrail />
           <RetroControls />
         </RetroPreferencesProvider>

@@ -1,13 +1,14 @@
 import { GuardedLink } from "@/components/admin/guarded-link";
 import { cn } from "@/lib/utils";
 
-export type AdminNavSection = "dashboard" | "projects" | "skills" | "services";
+export type AdminNavSection = "dashboard" | "projects" | "skills" | "services" | "socials";
 
 const LINKS: { section: AdminNavSection; href: string; label: string }[] = [
   { section: "dashboard", href: "/admin", label: "Dashboard" },
   { section: "projects", href: "/admin/projects", label: "Projects" },
   { section: "skills", href: "/admin/skills", label: "Skills" },
   { section: "services", href: "/admin/services", label: "Services" },
+  { section: "socials", href: "/admin/socials", label: "Social Links" },
 ];
 
 export function AdminNav({ current }: { current: AdminNavSection }) {
