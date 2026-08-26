@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ProjectForm } from "@/components/admin/project-form";
+import { AdminNav } from "@/components/admin/admin-nav";
 import { NeoCard } from "@/components/ui/neo-card";
 import { neoButtonClasses } from "@/components/ui/neo-button";
 import { getProjectById } from "@/lib/projects";
@@ -29,6 +30,7 @@ export default async function EditProjectPage({
     // 404 page.
     return (
       <div className="flex flex-col gap-6">
+        <AdminNav current="projects" />
         <h1 className="font-sans text-3xl font-bold">Project Not Found</h1>
         <NeoCard>
           <p className="font-sans text-muted">
@@ -45,6 +47,7 @@ export default async function EditProjectPage({
 
   return (
     <div className="flex flex-col gap-6">
+      <AdminNav current="projects" />
       <h1 className="font-sans text-3xl font-bold">Edit Project</h1>
       <ProjectForm mode="edit" project={project} />
     </div>

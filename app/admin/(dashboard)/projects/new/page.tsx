@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ProjectForm } from "@/components/admin/project-form";
+import { AdminNav } from "@/components/admin/admin-nav";
 
 export const metadata: Metadata = {
   title: "New Project",
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
 export default function NewProjectPage() {
   return (
     <div className="flex flex-col gap-6">
+      <AdminNav current="projects" />
       <h1 className="font-sans text-3xl font-bold">New Project</h1>
       <ProjectForm mode="create" />
     </div>

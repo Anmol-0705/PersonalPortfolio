@@ -52,6 +52,48 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["projects"]["Insert"]>;
         Relationships: [];
       };
+      skills: {
+        Row: {
+          id: string;
+          name: string;
+          category: string;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          category: string;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["skills"]["Insert"]>;
+        Relationships: [];
+      };
+      services: {
+        Row: {
+          id: string;
+          title: string;
+          description: string;
+          icon: string;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description: string;
+          icon: string;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["services"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -68,3 +110,11 @@ export type Database = {
 export type ProjectRow = Database["public"]["Tables"]["projects"]["Row"];
 export type ProjectInsert = Database["public"]["Tables"]["projects"]["Insert"];
 export type ProjectUpdate = Database["public"]["Tables"]["projects"]["Update"];
+
+export type SkillRow = Database["public"]["Tables"]["skills"]["Row"];
+export type SkillInsert = Database["public"]["Tables"]["skills"]["Insert"];
+export type SkillUpdate = Database["public"]["Tables"]["skills"]["Update"];
+
+export type ServiceRow = Database["public"]["Tables"]["services"]["Row"];
+export type ServiceInsert = Database["public"]["Tables"]["services"]["Insert"];
+export type ServiceUpdate = Database["public"]["Tables"]["services"]["Update"];

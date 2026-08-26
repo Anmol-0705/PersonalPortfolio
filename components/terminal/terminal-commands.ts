@@ -1,6 +1,6 @@
 import type { Project } from "@/types/project";
-import { services } from "@/data/services";
-import { skillGroups } from "@/data/skills";
+import type { Service } from "@/types/service";
+import type { SkillGroup } from "@/types/skill";
 import { siteConfig } from "@/data/site-config";
 
 export type TerminalTone = "default" | "muted" | "accent" | "error";
@@ -19,6 +19,8 @@ export type TerminalCommandResult =
 
 export type TerminalCommandContext = {
   projects: Project[];
+  skillGroups: SkillGroup[];
+  services: Service[];
 };
 
 export type TerminalCommand = {
@@ -79,13 +81,17 @@ const skillsCommand: TerminalCommand = {
   name: "skills",
   aliases: [],
   description: "View the tech stack",
-  run: () =>
-    print(
+  run: (_args, { skillGroups }) => {
+    if (skillGroups.length === 0) {
+      return print([line("No skills listed yet.", "muted")]);
+    }
+    return print(
       skillGroups.flatMap((group) => [
         line(group.label.toUpperCase(), "accent"),
         line(group.skills.join(", ")),
       ]),
-    ),
+    );
+  },
 };
 
 const projectsCommand: TerminalCommand = {
@@ -128,12 +134,18 @@ const servicesCommand: TerminalCommand = {
   name: "services",
   aliases: ["work"],
   description: "View services offered",
-  run: () =>
-    print([
+  run: (_args, { services }) => {
+    if (services.length === 0) {
+      return print([line("No services listed yet.", "muted")]);
+    }
+    return print([
       line("SERVICES", "accent"),
-      ...services.map((service) => line(`${service.label}  ${service.title}`)),
+      ...services.map((service, index) =>
+        line(`${`SVC_${String(index + 1).padStart(2, "0")}`}  ${service.title}`),
+      ),
       line("Full descriptions →", "muted", "/services"),
-    ]),
+    ]);
+  },
 };
 
 const hireCommand: TerminalCommand = {

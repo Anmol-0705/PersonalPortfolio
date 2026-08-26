@@ -1,12 +1,19 @@
+/**
+ * Historical record of the skills that seeded public.skills (see
+ * supabase/migrations/0007_seed_skills_and_services.sql). No longer
+ * read by the app — lib/skills.ts now queries Supabase directly, and
+ * the public/terminal-facing SkillGroup type now lives in
+ * types/skill.ts. Kept for reference only.
+ */
 import type { TechBadgeVariant } from "@/components/ui/tech-badge";
 
-export type SkillGroup = {
+type LegacySkillGroup = {
   label: string;
   variant: TechBadgeVariant;
   skills: string[];
 };
 
-export const skillGroups: SkillGroup[] = [
+export const skillGroups: LegacySkillGroup[] = [
   {
     label: "Frontend",
     variant: "purple",

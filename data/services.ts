@@ -1,14 +1,21 @@
+/**
+ * Historical record of the services that seeded public.services (see
+ * supabase/migrations/0007_seed_skills_and_services.sql). No longer
+ * read by the app — lib/services.ts now queries Supabase directly, and
+ * the public-facing Service type now lives in types/service.ts. Kept
+ * for reference only.
+ */
 import { Rocket, Layers, PenTool, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-export type Service = {
+type LegacyService = {
   icon: LucideIcon;
   label: string;
   title: string;
   description: string;
 };
 
-export const services: Service[] = [
+export const services: LegacyService[] = [
   {
     icon: Rocket,
     label: "SVC_01",

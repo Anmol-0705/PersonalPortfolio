@@ -7,9 +7,15 @@ import { EngagementSection } from "@/components/sections/engagement-section";
 import { TerminalSection } from "@/components/sections/terminal-section";
 import { CtaSection } from "@/components/sections/cta-section";
 import { getAllProjects } from "@/lib/projects";
+import { getSkillGroups } from "@/lib/skills";
+import { getServices } from "@/lib/services";
 
 export default async function HomePage() {
-  const projects = await getAllProjects();
+  const [projects, skillGroups, services] = await Promise.all([
+    getAllProjects(),
+    getSkillGroups(),
+    getServices(),
+  ]);
 
   return (
     <>
@@ -19,7 +25,7 @@ export default async function HomePage() {
       <SkillsSection />
       <ProjectsSection />
       <EngagementSection />
-      <TerminalSection projects={projects} />
+      <TerminalSection projects={projects} skillGroups={skillGroups} services={services} />
       <CtaSection />
     </>
   );

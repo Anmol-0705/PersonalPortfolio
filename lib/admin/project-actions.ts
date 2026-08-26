@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { PostgrestError } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
 import { PROJECT_IMAGES_BUCKET, pathFromPublicUrl } from "@/lib/supabase/storage";
+import { requireAdmin } from "@/lib/admin/auth";
+import { describeError } from "@/lib/admin/errors";
 import type { ProjectInsert, ProjectUpdate } from "@/types/supabase";
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -28,52 +28,6 @@ export type ProjectFormInput = {
   testimonialQuote: string;
   testimonialAuthor: string;
 };
-
-async function requireAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    console.error("[requireAdmin] no authenticated user", userError?.message);
-    return { supabase, ok: false as const };
-  }
-
-  const { data: isAdmin, error: rpcError } = await supabase.rpc("is_admin");
-  if (!isAdmin) {
-    console.error("[requireAdmin] is_admin() returned falsy", {
-      isAdmin,
-      rpcError: rpcError?.message,
-      userId: user.id,
-    });
-    return { supabase, ok: false as const };
-  }
-
-  return { supabase, ok: true as const };
-}
-
-/**
- * Logs the real Postgrest error server-side (never swallowed — this is
- * what hid the original create-project bug), and builds a user-facing
- * message: exact detail in development, a safe generic message in
- * production so database internals never reach a browser.
- */
-function describeError(context: string, error: PostgrestError, fallback: string): string {
-  console.error(`[${context}] Supabase error:`, {
-    code: error.code,
-    message: error.message,
-    details: error.details,
-    hint: error.hint,
-  });
-
-  if (process.env.NODE_ENV !== "production") {
-    return `${fallback} [DEV] ${error.code ?? "?"}: ${error.message}${error.details ? ` — ${error.details}` : ""}${error.hint ? ` (hint: ${error.hint})` : ""}`;
-  }
-
-  return fallback;
-}
 
 function validate(input: ProjectFormInput): string | null {
   const slug = input.slug.trim();

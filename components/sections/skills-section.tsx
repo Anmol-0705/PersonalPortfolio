@@ -1,8 +1,14 @@
 import { TechBadge } from "@/components/ui/tech-badge";
 import { SectionHeading } from "@/components/sections/section-heading";
-import { skillGroups } from "@/data/skills";
+import { getSkillGroups } from "@/lib/skills";
 
-export function SkillsSection() {
+export async function SkillsSection() {
+  const skillGroups = await getSkillGroups();
+
+  if (skillGroups.length === 0) {
+    return null;
+  }
+
   return (
     <section className="border-b-[3px] border-border bg-background">
       <div className="container-app py-20 sm:py-28">

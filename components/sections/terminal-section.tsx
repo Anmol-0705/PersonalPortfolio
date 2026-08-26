@@ -6,12 +6,16 @@ import { Modal } from "@/components/ui/modal";
 import { Terminal } from "@/components/terminal/terminal";
 import { neoButtonClasses } from "@/components/ui/neo-button";
 import type { Project } from "@/types/project";
+import type { Service } from "@/types/service";
+import type { SkillGroup } from "@/types/skill";
 
 export type TerminalSectionProps = {
   projects: Project[];
+  skillGroups: SkillGroup[];
+  services: Service[];
 };
 
-export function TerminalSection({ projects }: TerminalSectionProps) {
+export function TerminalSection({ projects, skillGroups, services }: TerminalSectionProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -39,7 +43,7 @@ export function TerminalSection({ projects }: TerminalSectionProps) {
         title="terminal.exe"
         className="max-w-2xl!"
       >
-        <Terminal projects={projects} />
+        <Terminal projects={projects} skillGroups={skillGroups} services={services} />
       </Modal>
     </section>
   );

@@ -7,12 +7,12 @@ modern, premium foundation.
 
 ## Status
 
-**Phase 8 — Project Editing Fix and Image Uploads: Complete and
-confirmed working live.** The portfolio now runs on Supabase-backed
-project management end to end: a private admin panel for creating,
-editing, publishing, and deleting projects, and Supabase Storage-backed
-cover images with upload, replacement, and removal. See
-[`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for the full record.
+**Phase 9 — Admin Skills and Services Management: code complete,
+pending your migration run.** The admin panel now also manages the
+homepage's tech stack and services list — no more editing TypeScript to
+change either. See [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for
+the full record, including the SQL migrations that still need to be run
+manually before this is live.
 
 ## Tech Stack
 
@@ -64,18 +64,19 @@ The app runs at `http://localhost:3000`.
 ```
 app/
   api/contact/route.ts     Server-side contact/quote email delivery
-  admin/                   Private admin panel (login, dashboard, project CRUD)
+  admin/                   Private admin panel (login, dashboard, project/skill/service CRUD)
   ...                      Public routes (App Router)
 components/
   layout/, ui/, hero/, sections/, projects/, engagement/, contact/, retro/
   terminal/                Interactive command-line experience
   admin/                   Admin-only UI (forms, dashboard controls)
-data/                     Typed static content (site config, services, skills)
-                          projects.ts kept as historical seed reference only
+data/                     projects.ts, skills.ts, services.ts kept as
+                          historical seed reference only — not read at runtime
 lib/
   supabase/                Browser/server Supabase clients + session refresh
-  admin/project-actions.ts Server Actions for project CRUD (admin-only)
-  projects.ts              Public project reads — Supabase, RLS-scoped
+  admin/                   Server Actions (project/skill/service CRUD) + shared auth/error helpers
+  projects.ts, skills.ts, services.ts   Public reads — Supabase, RLS-scoped
+  service-icons.ts, skill-categories.ts Controlled maps (icon ids, category colors)
 hooks/                    use-local-storage, use-crt-mode, use-cursor-trail, use-sound
 types/                    Shared TypeScript types (incl. hand-written Supabase types)
 supabase/migrations/      SQL to run manually in the Supabase SQL editor
@@ -132,7 +133,18 @@ false positive (see `docs/PROJECT_STATE.md`). **Confirmed working live**:
 admin project editing and cover image upload/replace/remove both verified
 end to end.
 
+**Phase 9 — Admin Skills and Services Management** · Added `public.skills`
+and `public.services` tables (same RLS/`is_admin()` model as projects) and
+extended `/admin` with skills and services management, so the tech stack
+and services list are editable without touching code. The homepage
+Skills/Services sections and the terminal's `skills`/`services` commands
+now read from Supabase instead of static files.
+
 ## Next Steps
 
-A lightweight boot/loading sequence or deeper homepage polish pass —
-no further phase has been started.
+1. **Run the SQL migrations** in `supabase/migrations/` (`0005` through
+   `0007`) via the Supabase SQL editor — see `docs/PROJECT_STATE.md` for
+   exact steps and verification queries. Until then, the homepage Skills
+   and Services sections render nothing (gracefully, not broken) and
+   `/admin/skills` and `/admin/services` show empty lists.
+2. A lightweight boot/loading sequence or deeper homepage polish pass.

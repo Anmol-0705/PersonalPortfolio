@@ -1,8 +1,15 @@
 import { NeoCard } from "@/components/ui/neo-card";
 import { SectionHeading } from "@/components/sections/section-heading";
-import { services } from "@/data/services";
+import { serviceIconMap } from "@/lib/service-icons";
+import { getServices } from "@/lib/services";
 
-export function ServicesSection() {
+export async function ServicesSection() {
+  const services = await getServices();
+
+  if (services.length === 0) {
+    return null;
+  }
+
   return (
     <section id="services" className="border-b-[3px] border-border bg-surface">
       <div className="container-app py-20 sm:py-28">
@@ -14,11 +21,11 @@ export function ServicesSection() {
         />
 
         <div className="mt-12 grid gap-6 sm:grid-cols-2">
-          {services.map((service) => {
-            const Icon = service.icon;
+          {services.map((service, index) => {
+            const Icon = serviceIconMap[service.iconId];
             return (
               <NeoCard
-                key={service.title}
+                key={service.id}
                 className="group bg-surface-raised transition-transform duration-150 hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[8px_8px_0_0_var(--color-border)]"
               >
                 <div className="flex items-center justify-between">
@@ -26,7 +33,7 @@ export function ServicesSection() {
                     <Icon className="h-6 w-6" aria-hidden="true" />
                   </span>
                   <span className="font-retro text-base text-muted">
-                    {service.label}
+                    {`SVC_${String(index + 1).padStart(2, "0")}`}
                   </span>
                 </div>
 

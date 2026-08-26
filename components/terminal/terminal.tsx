@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { runTerminalCommand } from "@/components/terminal/terminal-commands";
 import type { TerminalOutputLine } from "@/components/terminal/terminal-commands";
 import type { Project } from "@/types/project";
+import type { Service } from "@/types/service";
+import type { SkillGroup } from "@/types/skill";
 
 const WELCOME_LINES: TerminalOutputLine[] = [
   { text: "Welcome to Anmol's interactive terminal.", tone: "accent" },
@@ -50,9 +52,11 @@ function OutputLine({ line }: { line: TerminalOutputLine }) {
 
 export type TerminalProps = {
   projects: Project[];
+  skillGroups: SkillGroup[];
+  services: Service[];
 };
 
-export function Terminal({ projects }: TerminalProps) {
+export function Terminal({ projects, skillGroups, services }: TerminalProps) {
   const router = useRouter();
   const [entries, setEntries] = useState<TerminalOutputLine[]>(WELCOME_LINES);
   const [inputValue, setInputValue] = useState("");
@@ -83,7 +87,7 @@ export function Terminal({ projects }: TerminalProps) {
     setCommandHistory((previous) => [...previous, command]);
     setHistoryIndex(null);
 
-    const result = runTerminalCommand(command, { projects });
+    const result = runTerminalCommand(command, { projects, skillGroups, services });
     const echo: TerminalOutputLine = { text: `> ${command}`, tone: "accent" };
 
     if (result.action === "clear") {

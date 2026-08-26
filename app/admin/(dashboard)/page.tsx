@@ -3,9 +3,12 @@ import Link from "next/link";
 import { Pencil } from "lucide-react";
 import { NeoCard } from "@/components/ui/neo-card";
 import { neoButtonClasses } from "@/components/ui/neo-button";
+import { AdminNav } from "@/components/admin/admin-nav";
 import { PublishToggleButton } from "@/components/admin/publish-toggle-button";
 import { DeleteProjectButton } from "@/components/admin/delete-project-button";
 import { getAllProjects } from "@/lib/projects";
+import { getAllSkills } from "@/lib/skills";
+import { getServices } from "@/lib/services";
 
 export const metadata: Metadata = {
   title: "Admin Dashboard",
@@ -13,12 +16,18 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminDashboardPage() {
-  const projects = await getAllProjects();
+  const [projects, skills, services] = await Promise.all([
+    getAllProjects(),
+    getAllSkills(),
+    getServices(),
+  ]);
   const publishedCount = projects.filter((project) => project.published).length;
   const draftCount = projects.length - publishedCount;
 
   return (
     <div className="flex flex-col gap-8">
+      <AdminNav current="projects" />
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="font-sans text-3xl font-bold">Projects</h1>
         <Link href="/admin/projects/new" className={neoButtonClasses("primary")}>
@@ -26,10 +35,12 @@ export default async function AdminDashboardPage() {
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Total Projects" value={projects.length} />
         <StatCard label="Published" value={publishedCount} />
         <StatCard label="Drafts" value={draftCount} />
+        <StatCard label="Total Skills" value={skills.length} />
+        <StatCard label="Total Services" value={services.length} />
       </div>
 
       {projects.length === 0 ? (
