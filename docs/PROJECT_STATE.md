@@ -5,7 +5,7 @@ across development phases. Update it whenever a phase completes.
 
 ## Current Phase
 
-Phase 4 — Engagement Selector and Conversion Flow
+Phase 5 — Contact Delivery Integration and Retro Interaction Controls
 
 ## Phase Status
 
@@ -21,279 +21,302 @@ main
 
 ## Latest Commit
 
-`feat: add engagement selector and quote flow` (this commit — see
+`feat: add contact delivery and retro controls` (this commit — see
 `git log` for the hash)
 
 ## Build Status
 
-PASS — `npm run build` completes successfully. All routes compile,
-including the 5 statically generated `/projects/[slug]` pages.
+PASS — `npm run build` completes successfully. `/api/contact` compiles as
+a dynamic server route; all other routes unchanged from Phase 4.
 
 ## Lint Status
 
-PASS — `npm run lint` reports no errors or warnings.
+PASS — `npm run lint` reports no errors or warnings. Note: the
+`react-hooks/set-state-in-effect` rule (new in this toolchain) rejected
+the first draft of `useLocalStorage` (a plain `useEffect` + `setState`
+read) — rewritten with `useSyncExternalStore` instead; see Architecture
+Decisions.
 
 ## Tech Stack
 
 - Next.js 16 (App Router, Turbopack), React 19, TypeScript 5
 - Tailwind CSS v4
-- Framer Motion — `RetroHero` (unchanged) and `EngagementSelector` (new:
-  subtle panel crossfade between Quick Sprint / Full Build, wrapped in
-  `MotionConfig reducedMotion="user"`)
-- Lucide React — added `Check` (`OptionChip`), `X` already in use (`Modal`)
+- Framer Motion — unchanged from Phase 4
+- Lucide React — added `MonitorCog` (retro settings trigger)
+- **Resend 6.22.1** (new) — server-only transactional email
 - `next/font/google`: Space Grotesk, VT323 (unchanged)
+- Web Audio API (browser built-in, no package) — retro sound effects
 
 ## Dependencies
 
-Production: `next`, `react`, `react-dom`, `framer-motion`, `lucide-react`.
+Production: `next`, `react`, `react-dom`, `framer-motion`, `lucide-react`,
+**`resend`** (new).
 
-Dev: `typescript`, `tailwindcss`, `@tailwindcss/postcss`, `eslint`,
-`eslint-config-next`, `@types/node`, `@types/react`, `@types/react-dom`.
+Dev: unchanged from Phase 4.
 
-**No new dependencies were added in Phase 4.** Explicitly not installed,
-per instructions: React Hook Form, Zod, Redux, Resend, any email/CMS/
-database package, analytics.
+Explicitly not installed, per instructions: a database/ORM/CMS package,
+Redux, React Hook Form, Zod (manual validation was sufficient — see
+`app/api/contact/route.ts`), a CAPTCHA service, analytics.
+
+## Environment Variables
+
+| Variable            | Required | Purpose                                         |
+| -------------------- | -------- | ------------------------------------------------ |
+| `RESEND_API_KEY`    | Yes      | Resend API key for sending mail                  |
+| `RESEND_FROM_EMAIL` | Yes      | Verified sender address                          |
+| `CONTACT_TO_EMAIL`  | No       | Delivery inbox; falls back to `siteConfig.email` |
+
+`.env.example` documents these with placeholder values only.
+`.gitignore` already ignored `.env*`; added `!.env.example` so the
+example file itself can be committed while `.env.local` stays ignored
+(verified with `git check-ignore -v`). No real key was ever written to
+any file in this repository.
 
 ## Current Directory Structure
 
 ```
 app/
-  about/page.tsx
-  contact/page.tsx           (now a real page: intro + ContactForm)
-  projects/                  (unchanged from Phase 3)
-  services/page.tsx           (now a real page: services grid + CTAs)
-  layout.tsx
-  page.tsx
-  globals.css
-  not-found.tsx
+  api/
+    contact/route.ts        (new) POST handler: validate → spam-check → Resend
+  about/, contact/, projects/, services/   (unchanged from Phase 4)
+  layout.tsx                 (wraps body in RetroPreferencesProvider,
+                               mounts CursorTrail + RetroControls once)
+  globals.css                 (new: global CRT overlay rule)
 components/
-  layout/            navbar.tsx, footer.tsx
-  ui/                neo-button.tsx, neo-card.tsx, retro-window.tsx,
-                     tech-badge.tsx, toggle.tsx, modal.tsx (fixed: now
-                     max-height + overflow-y-auto so long content scrolls
-                     inside the dialog instead of overflowing the viewport)
-  hero/              retro-hero.tsx
-  sections/          section-heading.tsx, about-section.tsx,
-                     services-section.tsx (now reads data/services.ts),
-                     skills-section.tsx, projects-section.tsx,
-                     engagement-section.tsx (now a client component that
-                     reveals EngagementSelector on CTA click),
-                     cta-section.tsx
-  projects/          project-card.tsx, project-grid.tsx, project-media.tsx,
-                     project-case-study.tsx
-  engagement/        engagement-selector.tsx, quick-sprint-calculator.tsx,
-                     project-estimator.tsx, option-chip.tsx (new shared
-                     primitive, not in the original file list — see
-                     Architecture Decisions)
-  contact/           quick-quote-modal.tsx, contact-form.tsx
+  layout/            navbar.tsx, footer.tsx (unchanged)
+  ui/                modal.tsx (fixed: useId() for aria-labelledby,
+                     plays a click sound on open), others unchanged
+  hero/, sections/, projects/, engagement/   (unchanged from Phase 4)
+  contact/           contact-form.tsx (rewritten: real fetch to
+                     /api/contact, honeypot field, resubmit cooldown),
+                     quick-quote-modal.tsx (unchanged)
+  retro/             (new)
+    retro-preferences-provider.tsx   shared context: crt/trail/sound state
+                                      + lazy Web Audio playClick/playToggle
+    retro-controls.tsx                floating settings button + panel
+    cursor-trail.tsx                   rAF-driven trailing dots, no React
+                                        re-renders per mousemove
 data/
-  site-config.ts, projects.ts, services.ts (new: extracted from
-  services-section.tsx so the homepage section and /services page share
-  one source instead of duplicating copy)
+  services.ts, site-config.ts, projects.ts   (unchanged)
 lib/
-  utils.ts, projects.ts, quote-estimator.ts (new: estimation logic +
-  shared label maps + summary helpers for the engagement flow)
+  contact-email.ts    (new) server-only: builds HTML/text email, calls Resend
+  quote-estimator.ts, projects.ts, utils.ts   (unchanged)
+hooks/
+  use-local-storage.ts  (new) SSR-safe, useSyncExternalStore-based
+  use-crt-mode.ts        (new) thin context-consumer wrapper
+  use-cursor-trail.ts    (new) thin context-consumer wrapper
+  use-sound.ts            (new) thin context-consumer wrapper
 types/
-  project.ts, quote.ts (new: EngagementType, QuickSprintRequest,
-  ProjectRequest, QuoteEstimate, QuoteContext, and their supporting
-  option types)
+  contact.ts    (new) ContactRequestPayload, ContactApiResponse
+  quote.ts, project.ts   (unchanged)
 docs/
   PROJECT_STATE.md
-public/                (empty — unchanged)
+.env.example    (new)
+public/            (empty — unchanged)
 ```
 
-Still deferred: `components/terminal/`, `hooks/` (CRT/cursor/sound
-toggles), a real `data/projects.ts` media path, and any backend/API
-route — all scoped to Phase 5+.
+Not created: `components/retro/crt-overlay.tsx` — see Architecture
+Decisions for why the CRT effect is a global CSS rule instead of a
+component.
 
 ## Routes
 
-| Route              | Status                                                    |
-| ------------------ | ------------------------------------------------------------ |
-| `/`                | Full homepage; Engagement section now interactive (`id="engagement"`) |
-| `/about`           | Minimal placeholder (unchanged)                              |
-| `/projects`        | Full listing (unchanged from Phase 3)                        |
-| `/projects/[slug]` | Full case study (unchanged from Phase 3)                     |
-| `/services`        | **New: real page** — services grid + CTAs into `/#engagement` and `/contact` |
-| `/contact`         | **New: real page** — intro, mailto, `ContactForm`             |
-| `not-found`        | Implemented, styled (unchanged)                               |
+| Route              | Status                                                        |
+| ------------------- | ---------------------------------------------------------------- |
+| `/`                | Unchanged homepage; engagement flow now delivers real email      |
+| `/about`           | Minimal placeholder (unchanged)                                  |
+| `/projects`        | Unchanged                                                         |
+| `/projects/[slug]` | Unchanged                                                         |
+| `/services`        | Unchanged                                                         |
+| `/contact`         | Unchanged UI; `ContactForm` now calls the real API                |
+| `not-found`        | Unchanged                                                         |
 
-## Implemented Components (new in Phase 4)
+## API Routes
 
-- `components/engagement/option-chip.tsx` — shared radio/checkbox "chip"
-  control: a real `<input type="radio"|"checkbox">` visually hidden with
-  `sr-only` inside a `<label>`, with a styled sibling `<span>` reflecting
-  checked state via JS (icon + border + color change — never color alone).
-  Used by both the sprint calculator and the project estimator across 6
-  different fields, which is why it was extracted as its own file.
-- `components/engagement/quick-sprint-calculator.tsx` —
-  `QuickSprintCalculator`. Work-type + scope selection (both via
-  `OptionChip`), optional task description, a live honest estimate panel
-  (`aria-live="polite"`), and a "Discuss This Sprint" button that builds a
-  `QuoteContext` and hands it to the parent.
-- `components/engagement/project-estimator.tsx` — `ProjectEstimator`.
-  Project type, complexity (with description text), timeline, and
-  multi-select requirements (all via `OptionChip`), a live scope/level
-  estimate, and a "Request a Custom Quote" button.
-- `components/engagement/engagement-selector.tsx` — `EngagementSelector`.
-  Accessible ARIA tabs (`role="tablist"`/`"tab"`/`"tabpanel"`, roving
-  `tabIndex`, arrow-key navigation with focus movement) switching between
-  the two flows; owns the `QuoteContext` state and renders
-  `QuickQuoteModal`.
-- `components/contact/quick-quote-modal.tsx` — `QuickQuoteModal`. Wraps
-  the Phase 1 `Modal`; shows a read-only summary of the user's selections
-  (via `summarizeQuickSprint`/`summarizeProject`) above a `ContactForm`
-  that receives the full `QuoteContext`.
-- `components/contact/contact-form.tsx` — `ContactForm`. Native
-  controlled form (Name, Email, Company (optional), Message), inline
-  validation (required fields + email regex), submitting/success/error
-  states, and a documented placeholder `submitContactRequest()` — see
-  Submission Status below.
+- **`POST /api/contact`** — accepts `ContactRequestPayload` JSON.
+  Rate-limits by IP (one request per 15s, in-memory), rejects honeypot
+  hits and malformed payloads with `400`, sends via
+  `lib/contact-email.ts`, and returns `{ success: true }` or
+  `{ success: false, error: <safe message> }`. Missing
+  `RESEND_API_KEY`/`RESEND_FROM_EMAIL` returns `500`; a Resend-side send
+  failure returns `502`. Never echoes back internals, stack traces, or
+  env values.
 
-## Completed Features
+## Implemented Components (new in Phase 5)
 
-- Full Quick Sprint and Full Build conversion flows, homepage-embedded
-  (see Engagement Flow below).
-- Deterministic, transparent estimation logic in `lib/quote-estimator.ts`
-  — no fabricated exact pricing; the sprint's "indicative estimate" is
-  always explicitly labelled and tied back to the ₹2000 / 5-hour package;
-  the project estimator returns a qualitative engagement level, never a
-  number.
-- User selections carry forward into the quote modal without re-entry.
-- `/services` and `/contact` are real pages now, both server components
-  except for the client `ContactForm`.
-- Accessibility: real `button`/`input`/`textarea`/`fieldset`/`legend`
-  elements throughout (no clickable divs), labelled controls, `aria-live`
-  estimate panels, accessible tabs with keyboard support, Escape-to-close
-  and overlay-click-to-close modal (inherited from Phase 1, verified),
-  focus trap + focus restore (inherited, verified), reduced-motion
-  respected via `MotionConfig`.
-- Performance: only components that need interactivity are client
-  components (`EngagementSection`, `EngagementSelector`,
-  `QuickSprintCalculator`, `ProjectEstimator`, `OptionChip`,
-  `ContactForm`); `QuickQuoteModal`, `/services`, and `/contact` (aside
-  from the form) stay server components.
+- `components/retro/retro-preferences-provider.tsx` — `RetroPreferencesProvider`
+  / `useRetroPreferences`. One context provider backing all three retro
+  preferences plus lazily-initialized Web Audio playback, mounted once in
+  `app/layout.tsx`.
+- `components/retro/retro-controls.tsx` — `RetroControls`. Fixed
+  bottom-right settings button (`aria-expanded`/`aria-haspopup`) that
+  opens a small "DISPLAY / FX" panel with three `Toggle`s (reused from
+  Phase 1), closing on outside-click or Escape.
+- `components/retro/cursor-trail.tsx` — `CursorTrail`. Renders `null`
+  unless enabled; when active, checks `prefers-reduced-motion` and
+  `(pointer: fine)` once before attaching a `pointermove` listener and a
+  `requestAnimationFrame` loop that writes trail-dot positions directly
+  via `element.style.transform` (no per-frame React state).
+- `lib/contact-email.ts` — server-only. Builds an HTML email (inline
+  styles, escaped user input) with a plain-text fallback, sets
+  `replyTo` to the visitor's validated email, and calls
+  `resend.emails.send()`. Subject line varies by request type (plain
+  contact vs. Quick Sprint vs. Full Build).
+- `app/api/contact/route.ts` — the POST handler described above.
 
-## Engagement Flow
+## Contact Delivery Architecture
 
-**Quick Sprint:** homepage card "Discuss a Sprint" → reveals
-`EngagementSelector` (Quick Sprint tab active) → user picks a work type
-and an approximate scope (5 options from "Up to 1 hour" to "Full 5-hour
-sprint") and optionally describes the task → sees a live honest message
-("appears suitable for a focused sprint" vs. "may require more than one
-sprint") plus an explicitly-labelled indicative estimate → clicks
-"Discuss This Sprint" → `QuickQuoteModal` opens with the selections shown
-read-only → user fills Name/Email/(Company)/Message → submits through the
-placeholder handler → sees the honest "Request ready" success state with
-a direct mailto fallback.
+```
+ContactForm (client)
+  → client-side required-field + email-format validation
+  → fetch POST /api/contact
+      → server-side validation (name/email/message shape + length, honeypot)
+      → per-IP rate limit
+      → lib/contact-email.ts: format HTML/text email, call Resend
+  → JSON { success: true } | { success: false, error }
+  → ContactForm shows success or error UI accordingly
+```
 
-**Full Build:** homepage card "Plan a Project" → reveals
-`EngagementSelector` (Full Build tab active) → user picks a project type,
-complexity (with a plain-language description per level), timeline, and
-any number of requirements → sees a live qualitative estimate ("This
-looks like a Focused/Standard/Advanced Build," with guidance text, never
-a price) → clicks "Request a Custom Quote" → same modal/form/placeholder
-flow as above.
+`RESEND_API_KEY`/`RESEND_FROM_EMAIL`/Resend SDK usage is confined to
+`lib/contact-email.ts`, imported only by `app/api/contact/route.ts` — a
+server-only module never reachable from client bundles.
 
-Both flows are also reachable via `/services`' "See Engagement Options"
-link, which anchors to `/#engagement`.
+## Email Submission Flow
 
-## Quote Data Flow
+Both the plain contact form and the Quick Sprint/Full Build quote flow
+post the same shape to `/api/contact`; the optional `quote: QuoteContext`
+field is what distinguishes them. `lib/contact-email.ts` reuses
+`summarizeQuickSprint`/`summarizeProject` from `lib/quote-estimator.ts`
+(the same functions the UI uses) to render the engagement details as a
+readable bullet list in both the HTML and plain-text email bodies — never
+raw JSON. Subject line: `New Portfolio Contact Request` for plain
+messages, `New Portfolio Quote Request — Quick Sprint` /
+`— Full Build` otherwise.
 
-`EngagementSelector` holds `activeType` (which tab) and `quoteContext`
-(`QuoteContext | null`). `QuickSprintCalculator`/`ProjectEstimator` each
-hold their own local form state, derive a `QuoteEstimate` on every change
-via `estimateQuickSprint`/`estimateProject` (pure functions in
-`lib/quote-estimator.ts`), and on submit call `onRequestQuote(context)`
-with a fully-built `QuoteContext = { engagementType, quickSprint | project,
-estimate }`. That single object is passed straight into
-`QuickQuoteModal`, which derives its summary lines via
-`summarizeQuickSprint`/`summarizeProject` (same label maps the selection
-UI uses, so summary text and option text can never drift apart) and
-passes `context` through to `ContactForm`, which attaches it verbatim to
-the (placeholder) submission payload. No calculation logic is duplicated
-between the selection UI, the summary, and the submission payload — all
-three read from the same `lib/quote-estimator.ts` functions/maps.
+## Retro Interaction Architecture
+
+- **CRT**: `RetroPreferencesProvider` sets `document.documentElement.dataset.crt`
+  in a `useEffect` whenever the `crt` boolean changes. A single global CSS
+  rule in `app/globals.css` (`html[data-crt="true"] body::after`) paints a
+  static (non-animated) scanline texture at `z-index: 9999`,
+  `pointer-events: none`. No per-component overlay.
+- **Cursor trail**: see `CursorTrail` above. Only mounts its
+  `pointermove`/rAF loop when enabled, pointer is fine, and reduced
+  motion is not requested.
+- **Sound**: Web Audio `AudioContext` created lazily inside
+  `RetroPreferencesProvider`, only on the first `playClick`/`playToggle`
+  call — never on mount, never before a user gesture. Currently wired to
+  two triggers: the retro toggle switches themselves (`playToggle`) and
+  `Modal` opening (`playClick`). Deliberately **not** wired to every
+  `NeoButton` click site-wide — the brief warns against "annoying audio
+  behavior," and dozens of buttons playing a sound on every click would
+  cross that line.
+
+## User Preference Persistence
+
+All three preferences (`retro-crt-enabled`, `retro-trail-enabled`,
+`retro-sound-enabled`) persist via `hooks/use-local-storage.ts`, built on
+`useSyncExternalStore` rather than a `useEffect` + `setState` read (see
+Architecture Decisions). Defaults are `false` for all three, matching the
+spec. Verified via Playwright: toggling each control updates
+`localStorage` immediately, and a full page reload restores the same
+state (including the CRT `data-crt` attribute).
+
+## Accessibility Decisions
+
+- **Modal fix**: `Modal` now calls `useId()` once per instance and uses
+  that value for both `aria-labelledby` on the dialog and `id` on the
+  `<h2>` title, replacing the old hardcoded `"modal-title"`. Verified via
+  Playwright that the generated id is unique (not the old literal string)
+  and that it correctly resolves to the title text. Escape-to-close,
+  overlay-click-to-close, focus trap + restore, and the Phase 4
+  mobile-scroll fix were all re-verified working after this change.
+- Retro controls: real `<button>`s throughout (no clickable divs),
+  `aria-expanded`/`aria-haspopup`/`aria-controls` on the trigger, visible
+  focus rings inherited from the design system, closes on Escape and
+  outside click.
+- `CursorTrail`'s root is `aria-hidden="true"` — it is purely decorative
+  and contributes nothing to the accessibility tree.
+- **Reduced motion takes priority over the decorative toggle.** Even with
+  the cursor-trail preference enabled, the effect never initializes when
+  `prefers-reduced-motion: reduce` is set — verified via Playwright with
+  `reducedMotion: "reduce"` context (trail dots never received a
+  transform). CRT mode has no animation to gate (static scanlines only).
+  Framer Motion usage elsewhere (`RetroHero`, `EngagementSelector`) is
+  unchanged from Phase 2/4 and continues to respect
+  `MotionConfig reducedMotion="user"`.
 
 ## Architecture Decisions
 
-- **`OptionChip` added beyond the original file list.** Six distinct
-  fields across two components needed an identical accessible
-  radio/checkbox "chip" pattern; extracting it once avoided six copies of
-  the same sr-only-input + styled-span logic. Consistent with the
-  `SectionHeading` precedent from Phase 2.
-- **Selection state lives in the calculator/estimator components, not in
-  `EngagementSelector`.** Only the final `QuoteContext` needs to reach the
-  parent; keeping in-progress form state local avoids unnecessary
-  re-renders and keeps each component self-contained.
-- **`data/services.ts` extracted from `services-section.tsx`.** The
-  homepage section and the new `/services` page needed the same four
-  services; duplicating the copy would have violated the "don't duplicate
-  service copy" instruction.
-- **`EngagementSection` became a client component.** It now needs to hold
-  reveal state (`activeType`) for the interactive selector — a genuine,
-  new interactivity requirement, not a redesign for its own sake.
-- **No dedicated API route for contact submission.** Section 13 explicitly
-  allows a clean client-side placeholder instead of unnecessary API
-  infrastructure; `submitContactRequest()` in `contact-form.tsx` is that
-  placeholder — documented as non-production, never used to fabricate a
-  "sent" claim.
-- **Modal bug found and fixed.** The Phase 1 `Modal` had no
-  `max-height`/`overflow-y-auto`, so on short viewports (e.g. a phone with
-  the quote form's ~9 fields worth of content) the dialog could overflow
-  the viewport with no way to scroll to the submit button — exactly what
-  section 20 warns against. Fixed by constraining the dialog to
-  `max-h-[min(90dvh,calc(100dvh-2rem))]` with internal `overflow-y-auto`;
-  verified via Playwright that the submit button becomes reachable by
-  scrolling the dialog on a 375×812 viewport.
-- **Playwright test-authoring note (not a product bug):** clicking an
-  `OptionChip`'s underlying `sr-only` `<input>` directly (e.g. via
-  `getByRole('radio', ...).click()`) fails Playwright's actionability
-  check because the input's real geometry is a clipped 1×1px box — that's
-  the standard sr-only-input-inside-label accessibility pattern, and real
-  mouse clicks land on the visible `<span>` and bubble to the label
-  exactly as expected. Verified real behavior is correct by clicking the
-  `<label>` element instead; documented here so a future session doesn't
-  mistake the test artifact for an app bug.
-
-## Submission Status
-
-- **Requests are NOT actually delivered anywhere.** No email integration,
-  no external API, no database. `submitContactRequest()` in
-  `components/contact/contact-form.tsx` only awaits a simulated 700ms
-  delay and resolves — nothing is sent, stored, or logged.
-- The UI never claims delivery. On success it shows "Request ready." plus
-  "Submission delivery will be connected in the contact integration
-  phase," and offers a direct `mailto:` link as the real, working
-  fallback today.
-- The `try`/`catch` around the call is real architecture (not
-  decorative): swapping `submitContactRequest` for a real `fetch()` to a
-  Phase 5 API route requires no change to `ContactForm`'s state machine.
-
-## Documentation Updated
-
-- **README.md**: status → Phase 4 complete; tech stack, architecture tree
-  (`engagement/`, `contact/` folders), and completed-features list
-  updated; explicitly states real delivery is not implemented; next steps
-  → Phase 5.
-- **docs/PROJECT_STATE.md**: this file — full Phase 4 rewrite covering
-  the engagement flow, quote data flow, new components, submission
-  status, architecture decisions (including the Modal fix and the
-  Playwright test-authoring note), and next phase.
+- **One shared `RetroPreferencesProvider`, not three independent
+  `useLocalStorage` hooks.** The settings panel, `Modal` (sound), and
+  `CursorTrail` all need to read (and in one case write) the same
+  booleans from different parts of the tree. Three independent
+  localStorage subscriptions could desync within a tab; one context
+  keeps them trivially in sync. `hooks/use-crt-mode.ts`,
+  `use-cursor-trail.ts`, and `use-sound.ts` still exist exactly as named
+  in the target architecture — they're just thin consumers of the shared
+  context rather than each independently touching `localStorage`.
+- **`useLocalStorage` rewritten around `useSyncExternalStore`, not
+  `useEffect` + `setState`.** The obvious "read localStorage in an
+  effect, then `setState`" implementation is rejected by this project's
+  current lint config (`react-hooks/set-state-in-effect`, treated as an
+  error). `useSyncExternalStore` is the React-provided API for exactly
+  this case — an external store whose value can legitimately differ
+  between server and client — and avoids both the lint error and any
+  hydration mismatch, since React defers to the server snapshot through
+  hydration and only switches to the live value afterward.
+- **No `components/retro/crt-overlay.tsx`.** The brief explicitly
+  preferred "one global implementation" over per-component overlays; a
+  component would just render a div that does the same thing the CSS
+  rule already does more simply, so it was left out.
+- **No dedicated rate-limit or validation library.** A 15-second
+  in-memory per-IP `Map` and a handful of manual `typeof`/length checks
+  were enough; a real dependency would be overkill for "lightweight spam
+  protection" on a single route.
+- **Sound scoped to two triggers, not global button clicks.** See Retro
+  Interaction Architecture above.
+- **`Modal` now depends on `useSound`, i.e. on being rendered inside
+  `RetroPreferencesProvider`.** True everywhere in this app (the provider
+  wraps the whole `<body>`), but worth knowing if `Modal` is ever reused
+  outside that tree in the future.
 
 ## Known Issues
 
-- No real submission delivery yet (by design — see Submission Status).
-- `Modal`'s `aria-labelledby="modal-title"` is a fixed id; fine today
-  since only one `Modal` instance is ever mounted at a time, but would
-  collide if that ever changes — worth revisiting if a second modal type
-  is added.
-- No automated tests exist yet (out of scope for Phase 4).
+- **Live email delivery was not tested** — no `RESEND_API_KEY` is
+  configured in this environment. The missing-configuration path was
+  verified (honest `500` response, no fake success), but no email has
+  actually been sent by this implementation. See Live Email Delivery
+  Test Status below.
+- The in-memory rate limiter resets on server restart and isn't shared
+  across serverless instances — a deliberate "lightweight guard" per the
+  brief, not a production-grade spam defense.
+- `CursorTrail`'s pointer/reduced-motion check runs once when the effect
+  starts (on enable), not on a live media-query listener — plugging in a
+  mouse on a touch device won't retroactively enable the trail without
+  re-toggling it.
+- No automated tests exist yet (out of scope).
 - Favicon is still the Next.js default.
+
+## Live Email Delivery Test Status
+
+**NOT TESTED.** No real `RESEND_API_KEY` was available in this
+environment, and none was requested or invented. What *was* verified:
+
+- With no key configured, `POST /api/contact` returns `500` with a safe,
+  generic error message (never a fake success).
+- `ContactForm` correctly shows its error state with the returned message
+  and a working `mailto:` fallback — never a false "sent" message.
+- Server-side console logging confirms the missing-config path is hit and
+  logs a clear diagnostic without printing any secret values.
+
+When a real key is available, set it in `.env.local` (not `.env.example`)
+and submit the form once to confirm live delivery before relying on it in
+production.
 
 ## Next Planned Phase
 
-Phase 5 — Contact Delivery Integration and Retro Interaction Controls
+Phase 6 — Interactive Terminal and Command Experience
 
 (Not started. Do not begin without explicit instruction.)
 
@@ -301,27 +324,30 @@ Phase 5 — Contact Delivery Integration and Retro Interaction Controls
 
 - Do not create a nested `PersonalPortfolio` directory or a second Git
   repository.
-- Do not add `react-hook-form`, `zod`, Redux, Resend, a CMS, a database,
-  or analytics until the phase that explicitly calls for them.
-- Never present the engagement estimator's output as a binding price.
-  Sprint estimates must stay labelled "Indicative estimate" and tied to
-  the ₹2000/5-hour package; the project estimator must stay qualitative
-  (Focused/Standard/Advanced Build), never a number.
-- Keep estimation logic and label maps in `lib/quote-estimator.ts` —
-  never re-implement scope/level logic inside a component.
-- When real submission delivery is built (Phase 5), update
-  `submitContactRequest()` in `contact-form.tsx` and its success-state
-  copy together — don't let the UI claim delivery before it's real.
-- Project content changes belong in `data/projects.ts`; service copy
-  changes belong in `data/services.ts` — never duplicate either back into
-  a component.
-- Keep raw hex colors out of components — use the semantic tokens or
-  palette tokens defined in `app/globals.css`.
-- Respect `prefers-reduced-motion` in any new Framer Motion usage.
+- Never commit `.env.local` or any real credential. `.env.example` stays
+  placeholder-only.
+- Do not claim email delivery succeeded unless the Resend API call
+  actually returned success — `ContactForm`'s success state must stay
+  gated on the API response, never optimistic.
+- Keep `RESEND_API_KEY` and all Resend SDK usage inside
+  `lib/contact-email.ts`, imported only from server code
+  (`app/api/contact/route.ts`). Never import it from a `"use client"` file.
+- Keep retro preference state flowing through
+  `RetroPreferencesProvider`/`useRetroPreferences` — don't add a second,
+  independent `useLocalStorage` call for the same preference elsewhere.
+- Any new `useLocalStorage`-backed value should follow the
+  `useSyncExternalStore` pattern already in place, not a
+  `useEffect`+`setState` read (the lint rule will reject it).
+- Keep sound effects sparse and intentional — do not wire `playClick`/
+  `playToggle` into every interactive element.
+- Reduced-motion must always win over a decorative toggle; never gate
+  that check behind the user's own preference.
+- Keep estimation logic and label maps in `lib/quote-estimator.ts`;
+  project/service content in `data/projects.ts`/`data/services.ts`.
 - Before adding a `lucide-react` icon import, confirm the export exists
   in the installed version.
 - Before committing any Markdown file, verify its encoding with
-  `file <path>` — this repo has hit a UTF-16-on-disk issue with
-  README.md more than once.
+  `file <path>`.
 - Update this file and `README.md` at the end of every phase so they stay
-  accurate — do not let them describe unimplemented features as done.
+  accurate — do not let them describe unimplemented or untested features
+  as done.

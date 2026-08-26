@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Space_Grotesk, VT323 } from "next/font/google";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
+import { RetroPreferencesProvider } from "@/components/retro/retro-preferences-provider";
+import { RetroControls } from "@/components/retro/retro-controls";
+import { CursorTrail } from "@/components/retro/cursor-trail";
 import { siteConfig } from "@/data/site-config";
 import "./globals.css";
 
@@ -28,9 +31,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${spaceGrotesk.variable} ${vt323.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
-        <Navbar />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <RetroPreferencesProvider>
+          <Navbar />
+          <main className="flex-1">{children}</main>
+          <Footer />
+          <CursorTrail />
+          <RetroControls />
+        </RetroPreferencesProvider>
       </body>
     </html>
   );

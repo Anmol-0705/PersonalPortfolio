@@ -7,26 +7,43 @@ modern, premium foundation.
 
 ## Status
 
-**Phase 4 — Engagement Selector and Conversion Flow: Complete.**
+**Phase 5 — Contact Delivery Integration and Retro Interaction Controls: Complete.**
 
-The homepage, `/projects` and `/projects/[slug]`, `/services`, and
-`/contact` are all fully built. Visitors can configure a Quick Sprint or
-Full Build engagement, get honest (non-binding) guidance on scope, and
-submit a quote request or general message through a native contact form.
-**Real email/API delivery is not implemented yet** — submissions currently
-resolve through a documented client-side placeholder. `/about` remains a
-minimal placeholder. See [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md)
-for the full implementation record.
+The contact and quote-request forms now submit to a real API route
+(`/api/contact`) that validates the request, applies basic spam
+protection, and sends email via [Resend](https://resend.com). Live
+delivery requires a configured `RESEND_API_KEY` — see Environment
+Variables below. The site also ships opt-in retro interaction controls
+(CRT scanlines, cursor trail, sound effects), all off by default and
+persisted per-browser. See [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md)
+for the full implementation record, including what was and wasn't tested
+with a live email key.
 
 ## Tech Stack
 
 - [Next.js](https://nextjs.org) (App Router) + React + TypeScript
 - [Tailwind CSS v4](https://tailwindcss.com)
-- [Framer Motion](https://motion.dev) — hero and engagement-panel transitions
+- [Framer Motion](https://motion.dev)
 - [Lucide React](https://lucide.dev) — icons
+- [Resend](https://resend.com) — transactional email (server-side only)
 - `next/font` — self-hosted Google Fonts (Space Grotesk, VT323)
 
-No CMS, database, backend framework, or email provider is wired up yet.
+No CMS, database, ORM, or analytics package is installed.
+
+## Environment Variables
+
+Copy `.env.example` to `.env.local` and fill in real values (never commit
+`.env.local`):
+
+| Variable            | Purpose                                              |
+| ------------------- | ------------------------------------------------------ |
+| `RESEND_API_KEY`    | Resend API key — required for email delivery          |
+| `RESEND_FROM_EMAIL` | Verified sender address (or Resend's sandbox sender)   |
+| `CONTACT_TO_EMAIL`  | Inbox that receives contact/quote requests             |
+
+Without `RESEND_API_KEY` configured, the contact form still works end to
+end (validation, spam checks, UI states) but the API honestly reports a
+delivery failure instead of pretending to succeed.
 
 ## Local Setup
 
@@ -49,60 +66,53 @@ The app runs at `http://localhost:3000`.
 ## Architecture Overview
 
 ```
-app/                  Routes (App Router)
+app/
+  api/contact/route.ts   Server-side contact/quote email delivery
+  ...                     Routes (App Router)
 components/
-  layout/              Navbar, Footer
-  ui/                  Reusable design-system primitives (incl. Modal)
-  hero/                Homepage hero
-  sections/            Homepage content sections
-  projects/            Project card, grid, media, and case study UI
-  engagement/          Quick Sprint calculator, project estimator, tabs
-  contact/             Contact form, quote modal
-data/                  Typed static content (site config, projects, services)
-lib/                   Shared utilities and data-access/estimation logic
-types/                 Shared TypeScript types
-docs/                  Project documentation and handoff state
+  layout/                 Navbar, Footer
+  ui/                     Reusable design-system primitives (incl. Modal)
+  hero/                   Homepage hero
+  sections/                Homepage content sections
+  projects/                Project card, grid, media, and case study UI
+  engagement/               Quick Sprint calculator, project estimator, tabs
+  contact/                   Contact form, quote modal
+  retro/                      CRT/trail/sound preferences, floating controls
+data/                    Typed static content (site config, projects, services)
+lib/                     Shared utilities, estimation logic, email formatting
+hooks/                   use-local-storage, use-crt-mode, use-cursor-trail, use-sound
+types/                   Shared TypeScript types
+docs/                    Project documentation and handoff state
 ```
-
-Design tokens live in [`app/globals.css`](app/globals.css). Project
-content lives in [`data/projects.ts`](data/projects.ts). Engagement
-estimation logic lives in [`lib/quote-estimator.ts`](lib/quote-estimator.ts)
-and is deliberately kept out of components.
 
 ## Completed
 
-**Phase 1 — Foundation**
+**Phase 1 — Foundation** · Next.js + TypeScript + Tailwind CSS v4 setup,
+design system, reusable UI primitives, route foundation.
 
-- Next.js + TypeScript + Tailwind CSS v4 project setup
-- Global design system, reusable UI primitives (`NeoButton`, `NeoCard`,
-  `RetroWindow`, `TechBadge`, `Toggle`, `Modal`), Navbar/Footer, route
-  foundation, typed site configuration
+**Phase 2 — Core Homepage** · Full homepage: hero, about, services,
+skills, featured projects, engagement preview, final CTA.
 
-**Phase 2 — Core Homepage**
+**Phase 3 — Dynamic Project Showcase** · Typed project data architecture,
+full `/projects` listing, statically generated `/projects/[slug]` case
+studies.
 
-- Full homepage: hero, about, services, skills, featured projects,
-  engagement preview, final CTA
+**Phase 4 — Engagement Selector and Conversion Flow** · Quick Sprint
+calculator and Full Build project estimator with transparent, honest
+guidance; a quote modal carrying selections into a contact form.
 
-**Phase 3 — Dynamic Project Showcase**
+**Phase 5 — Contact Delivery Integration and Retro Interaction Controls**
 
-- Typed project data architecture (`types/project.ts` → `data/projects.ts`
-  → `lib/projects.ts`), reusable project UI, full `/projects` listing,
-  statically generated `/projects/[slug]` case studies
-
-**Phase 4 — Engagement Selector and Conversion Flow**
-
-- Quick Sprint calculator and Full Build project estimator, each backed by
-  transparent, deterministic estimation logic (`lib/quote-estimator.ts`) —
-  no binding prices, no fabricated math
-- Accessible `EngagementSelector` tabs connecting both flows, embedded on
-  the homepage engagement section
-- `QuickQuoteModal` that carries the user's selections into a native
-  `ContactForm` (no re-entering choices)
-- Real `/contact` page and minimally expanded `/services` page
-- Honest submission UX: no backend exists yet, and the UI says so
+- Real API-backed email delivery via Resend, with server-side validation,
+  a honeypot spam trap, and a lightweight per-IP rate limit
+- Contact form only ever shows success after the API confirms delivery —
+  never before
+- Opt-in CRT scanline overlay, retro cursor trail, and Web Audio UI sound
+  effects, all off by default, persisted in `localStorage`, and
+  respecting `prefers-reduced-motion`
+- Fixed a Modal accessibility issue: `aria-labelledby` now uses a unique
+  `useId()`-generated ID per instance instead of a fixed string
 
 ## Next Steps
 
-Phase 5 — Contact Delivery Integration and Retro Interaction Controls:
-real email/API delivery for the contact and quote flow, plus opt-in retro
-interaction controls (CRT toggle, cursor trail, sound).
+Phase 6 — Interactive Terminal and Command Experience.

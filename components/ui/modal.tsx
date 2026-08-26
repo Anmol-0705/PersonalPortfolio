@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSound } from "@/hooks/use-sound";
 
 export type ModalProps = {
   open: boolean;
@@ -20,11 +21,14 @@ const FOCUSABLE_SELECTOR =
 export function Modal({ open, onClose, title, children, className }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  const titleId = useId();
+  const { playClick } = useSound();
 
   useEffect(() => {
     if (!open) return;
 
     previouslyFocused.current = document.activeElement as HTMLElement | null;
+    playClick();
 
     const dialog = dialogRef.current;
     const focusable = dialog?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
@@ -63,7 +67,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
       document.body.style.overflow = previousOverflow;
       previouslyFocused.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open, onClose, playClick]);
 
   if (!open) return null;
 
@@ -79,7 +83,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="modal-title"
+        aria-labelledby={titleId}
         tabIndex={-1}
         className={cn(
           "relative z-10 max-h-[min(90dvh,calc(100dvh-2rem))] w-full max-w-lg overflow-y-auto neo-border-thick neo-shadow-accent bg-surface p-6 sm:p-8",
@@ -87,7 +91,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         )}
       >
         <div className="mb-4 flex items-start justify-between gap-4">
-          <h2 id="modal-title" className="font-sans text-xl font-bold">
+          <h2 id={titleId} className="font-sans text-xl font-bold">
             {title}
           </h2>
           <button

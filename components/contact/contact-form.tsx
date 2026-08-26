@@ -1,30 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { neoButtonClasses } from "@/components/ui/neo-button";
 import { siteConfig } from "@/data/site-config";
+import type { ContactApiResponse, ContactRequestPayload } from "@/types/contact";
 import type { QuoteContext } from "@/types/quote";
 
-export type ContactSubmission = {
-  name: string;
-  email: string;
-  company?: string;
-  message: string;
-  quote?: QuoteContext;
-};
-
-/**
- * Placeholder submission handler. No backend or email provider is wired
- * up yet (planned for the contact-delivery integration phase) — this
- * only simulates network latency so the loading/success UI states are
- * real and testable, not a demonstration of actual delivery.
- */
 async function submitContactRequest(
-  submission: ContactSubmission,
-): Promise<void> {
-  void submission;
-  await new Promise((resolve) => setTimeout(resolve, 700));
+  payload: ContactRequestPayload,
+): Promise<ContactApiResponse> {
+  try {
+    const response = await fetch("/api/contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = (await response.json()) as ContactApiResponse;
+    return data;
+  } catch {
+    return {
+      success: false,
+      error:
+        "Something went wrong while sending your request. Please try again or contact me directly by email.",
+    };
+  }
 }
 
 export type ContactFormProps = {
@@ -41,14 +42,18 @@ type FieldErrors = {
 type Status = "idle" | "submitting" | "success" | "error";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const RESUBMIT_COOLDOWN_MS = 4000;
 
 export function ContactForm({ context, initialMessage }: ContactFormProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
   const [message, setMessage] = useState(initialMessage ?? "");
+  const [website, setWebsite] = useState(""); // honeypot — real users leave this empty
   const [status, setStatus] = useState<Status>("idle");
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const lastSubmittedAt = useRef(0);
 
   function validate(): boolean {
     const nextErrors: FieldErrors = {};
@@ -67,38 +72,41 @@ export function ContactForm({ context, initialMessage }: ContactFormProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    const now = Date.now();
+    if (now - lastSubmittedAt.current < RESUBMIT_COOLDOWN_MS) return;
     if (!validate()) return;
 
+    lastSubmittedAt.current = now;
     setStatus("submitting");
-    try {
-      await submitContactRequest({
-        name: name.trim(),
-        email: email.trim(),
-        company: company.trim() || undefined,
-        message: message.trim(),
-        quote: context,
-      });
+    setErrorMessage(null);
+
+    const result = await submitContactRequest({
+      name: name.trim(),
+      email: email.trim(),
+      company: company.trim() || undefined,
+      message: message.trim(),
+      quote: context,
+      website,
+    });
+
+    if (result.success) {
       setStatus("success");
-    } catch {
+    } else {
       setStatus("error");
+      setErrorMessage(result.error);
     }
   }
 
   if (status === "success") {
     return (
       <div role="status" className="neo-border bg-background p-6">
-        <p className="font-sans text-lg font-bold">Request ready.</p>
-        <p className="mt-2 font-sans text-muted">
-          Submission delivery will be connected in the contact integration
-          phase. In the meantime, feel free to reach out directly and
-          I&rsquo;ll get back to you.
+        <p className="font-sans text-lg font-bold">
+          Thanks, your request has been sent successfully.
         </p>
-        <a
-          href={`mailto:${siteConfig.email}`}
-          className={neoButtonClasses("primary", "mt-4")}
-        >
-          Email {siteConfig.email}
-        </a>
+        <p className="mt-2 font-sans text-muted">
+          I&rsquo;ll get back to you soon.
+        </p>
       </div>
     );
   }
@@ -114,6 +122,21 @@ export function ContactForm({ context, initialMessage }: ContactFormProps) {
           selections.
         </p>
       )}
+
+      {/* Honeypot field: hidden from sighted and assistive-tech users, left
+         out of tab order. Bots that auto-fill every field will trip it. */}
+      <div aria-hidden="true" className="absolute left-[-9999px] top-auto h-0 w-0 overflow-hidden">
+        <label htmlFor="contact-website">Website</label>
+        <input
+          id="contact-website"
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={website}
+          onChange={(event) => setWebsite(event.target.value)}
+        />
+      </div>
 
       <div>
         <label
@@ -204,9 +227,18 @@ export function ContactForm({ context, initialMessage }: ContactFormProps) {
       </div>
 
       {status === "error" && (
-        <p role="alert" className="font-sans text-sm text-hot-pink">
-          Something went wrong preparing your request. Please try again.
-        </p>
+        <div role="alert" className="neo-border bg-background p-4">
+          <p className="font-sans text-sm text-hot-pink">
+            {errorMessage ??
+              "Something went wrong while sending your request. Please try again or contact me directly by email."}
+          </p>
+          <a
+            href={`mailto:${siteConfig.email}`}
+            className="mt-2 inline-block font-sans text-sm underline decoration-2 underline-offset-4 hover:text-accent focus-visible:[outline:3px_solid_var(--color-focus)] focus-visible:outline-offset-2"
+          >
+            Email {siteConfig.email} directly
+          </a>
+        </div>
       )}
 
       <button
@@ -214,7 +246,7 @@ export function ContactForm({ context, initialMessage }: ContactFormProps) {
         disabled={status === "submitting"}
         className={neoButtonClasses("primary", "w-full")}
       >
-        {status === "submitting" ? "Preparing..." : "Send Message"}
+        {status === "submitting" ? "Sending..." : "Send Message"}
       </button>
     </form>
   );

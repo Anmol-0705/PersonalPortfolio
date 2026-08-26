@@ -159,6 +159,33 @@ body {
 }
 
 /* ---------------------------------------------------------------------- */
+/* Retro interaction controls (opt-in, user-controlled, persisted)        */
+/* ---------------------------------------------------------------------- */
+
+/*
+ * CRT mode is applied once at the document root via a data attribute
+ * (set from RetroPreferencesProvider) rather than a per-component overlay,
+ * so enabling it never means finding and wrapping every section. Static
+ * scanlines only — no flicker/animation, so there is nothing here for
+ * prefers-reduced-motion to need to disable.
+ */
+html[data-crt="true"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--color-pure-black) 60%, transparent) 0,
+    color-mix(in oklab, var(--color-pure-black) 60%, transparent) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.15;
+}
+
+/* ---------------------------------------------------------------------- */
 /* Motion                                                                 */
 /* ---------------------------------------------------------------------- */
 
