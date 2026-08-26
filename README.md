@@ -7,40 +7,39 @@ modern, premium foundation.
 
 ## Status
 
-**Phase 6 — Interactive Terminal and Command Experience: Complete.**
-
-The site now includes an optional, discoverable retro terminal (opened
-from a compact homepage teaser) that lets visitors explore the portfolio
-by typing commands — `help`, `about`, `skills`, `projects`, `services`,
-`hire`, `contact`, and more. It's a data-driven layer on top of existing
-content, not a second copy of it, and it never replaces normal site
-navigation. Real contact/quote email delivery (Resend) has now been
-manually tested end-to-end with a live API key and confirmed working.
-See [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for the full
-implementation record.
+**Phase 8 — Project Editing Fix and Image Uploads: Implemented, pending
+your migration run.** Fixed a table-level permissions gap that broke
+every public page, fixed the admin Edit flow's error visibility, and
+added Supabase Storage-backed cover image upload/replace/remove. See
+[`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for the full record,
+including the SQL migrations that still need to be run manually.
 
 ## Tech Stack
 
 - [Next.js](https://nextjs.org) (App Router) + React + TypeScript
 - [Tailwind CSS v4](https://tailwindcss.com)
+- [Supabase](https://supabase.com) — Postgres, Auth, Row Level Security
 - [Framer Motion](https://motion.dev)
 - [Lucide React](https://lucide.dev) — icons
 - [Resend](https://resend.com) — transactional email (server-side only)
 - `next/font` — self-hosted Google Fonts (Space Grotesk, VT323)
-
-No new dependency was added for the terminal — it's built with plain
-React and the existing Modal/design system.
 
 ## Environment Variables
 
 Copy `.env.example` to `.env.local` and fill in real values (never commit
 `.env.local`):
 
-| Variable            | Purpose                                              |
-| ------------------- | ------------------------------------------------------ |
-| `RESEND_API_KEY`    | Resend API key — required for email delivery          |
-| `RESEND_FROM_EMAIL` | Verified sender address (or Resend's sandbox sender)   |
-| `CONTACT_TO_EMAIL`  | Inbox that receives contact/quote requests             |
+| Variable                                | Purpose                                                    |
+| ---------------------------------------- | ----------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`               | Supabase project URL                                        |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`   | Supabase publishable (anon) key — safe for the browser       |
+| `RESEND_API_KEY`                         | Resend API key — required for email delivery                |
+| `RESEND_FROM_EMAIL`                      | Verified sender address (or Resend's sandbox sender)         |
+| `CONTACT_TO_EMAIL`                       | Inbox that receives contact/quote requests                   |
+
+The Supabase secret/service-role key is intentionally never used by this
+app — every admin operation runs through the logged-in user's session,
+enforced by RLS.
 
 ## Local Setup
 
@@ -64,16 +63,24 @@ The app runs at `http://localhost:3000`.
 
 ```
 app/
-  api/contact/route.ts   Server-side contact/quote email delivery
-  ...                     Routes (App Router)
+  api/contact/route.ts     Server-side contact/quote email delivery
+  admin/                   Private admin panel (login, dashboard, project CRUD)
+  ...                      Public routes (App Router)
 components/
   layout/, ui/, hero/, sections/, projects/, engagement/, contact/, retro/
-  terminal/               Interactive command-line experience
-data/                    Typed static content (site config, projects, services, skills)
-lib/                     Shared utilities, estimation logic, email formatting
-hooks/                   use-local-storage, use-crt-mode, use-cursor-trail, use-sound
-types/                   Shared TypeScript types
-docs/                    Project documentation and handoff state
+  terminal/                Interactive command-line experience
+  admin/                   Admin-only UI (forms, dashboard controls)
+data/                     Typed static content (site config, services, skills)
+                          projects.ts kept as historical seed reference only
+lib/
+  supabase/                Browser/server Supabase clients + session refresh
+  admin/project-actions.ts Server Actions for project CRUD (admin-only)
+  projects.ts              Public project reads — Supabase, RLS-scoped
+hooks/                    use-local-storage, use-crt-mode, use-cursor-trail, use-sound
+types/                    Shared TypeScript types (incl. hand-written Supabase types)
+supabase/migrations/      SQL to run manually in the Supabase SQL editor
+docs/                     Project documentation and handoff state
+proxy.ts                  Session refresh + /admin auth gate (Next 16's Proxy)
 ```
 
 ## Completed
@@ -108,7 +115,26 @@ sound effects, all persisted per-browser.
   handling, keyboard-accessible project links, focus management on
   open/close
 
+**Phase 7 — Supabase-Backed Project Admin** · Project data now lives in
+`public.projects` (Supabase Postgres) instead of a static file, protected
+by Row Level Security. A private `/admin` panel (Supabase Auth, no public
+signup) lets the site owner create, edit, publish/unpublish, and delete
+projects through a UI matching the existing design system, instead of
+editing source code.
+
+**Phase 8 — Project Editing Fix and Image Uploads** · Found and fixed a
+missing `GRANT SELECT ... TO anon` on `public.projects` (RLS policies
+alone don't grant table access — this was silently breaking every public
+page). Fixed the admin Edit page to show a clear "not found" state
+inside the admin layout instead of the site-wide 404. Added Supabase
+Storage-backed project cover images: upload, replace, and remove, with
+admin-only write policies and public read.
+
 ## Next Steps
 
-Recommended next phase: a lightweight boot/loading sequence or deeper
-homepage polish pass — no further phase has been started.
+1. **Run the SQL migrations** in `supabase/migrations/`, in order
+   (`0000` through `0004`), via the Supabase SQL editor — see
+   `docs/PROJECT_STATE.md` for exactly what each one does and which are
+   likely already applied. `0004` in particular is the fix for the
+   anon-grant bug and should be run immediately.
+2. A lightweight boot/loading sequence or deeper homepage polish pass.

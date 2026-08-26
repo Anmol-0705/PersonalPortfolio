@@ -1,16 +1,30 @@
-import type { Project } from "@/types/project";
-
 /**
- * Single source of truth for project content. Homepage, /projects, and
- * /projects/[slug] all read through lib/projects.ts, which reads this file.
+ * Historical record of the 5 projects that seeded public.projects
+ * (see supabase/migrations/0002_seed_existing_projects.sql). No longer
+ * read by the app — lib/projects.ts now queries Supabase directly.
+ * Kept for reference until the Supabase migration is fully validated.
  *
- * Content integrity: only technologies, descriptions, and details actually
- * provided are recorded here. Where the exact stack wasn't confirmed,
- * `technologies` is left as an empty array rather than guessed — UI
- * components must treat an empty array as "not shown", not as an error.
- * No client names, URLs, metrics, or testimonials are invented.
+ * Not typed against types/project.ts's `Project` (the DB-backed shape)
+ * since this predates a few fields that schema doesn't support
+ * (overview, status, keyFeatures) — kept verbatim rather than trimmed.
  */
-export const projects: Project[] = [
+type LegacyProject = {
+  slug: string;
+  title: string;
+  category: string;
+  shortDescription: string;
+  overview?: string;
+  featured: boolean;
+  order: number;
+  status?: "completed" | "in-progress" | "archived";
+  technologies: string[];
+  problem?: string;
+  approach?: string;
+  solution?: string;
+  keyFeatures?: string[];
+};
+
+export const projects: LegacyProject[] = [
   {
     slug: "the-creation-edit",
     title: "The-Creation-Edit",

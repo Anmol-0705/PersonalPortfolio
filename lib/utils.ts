@@ -8,3 +8,11 @@ type ClassValue = string | number | null | false | undefined;
 export function cn(...classes: ClassValue[]): string {
   return classes.filter(Boolean).join(" ");
 }
+
+export function slugify(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}

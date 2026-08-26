@@ -1,0 +1,24 @@
+-- ROOT CAUSE FIX: public.projects had RLS policies but no table-level
+-- GRANT for the `anon` role. In Postgres, a GRANT and a RLS policy are
+-- two separate layers — RLS only filters rows for a role that already
+-- has the base privilege; it does not grant that privilege itself.
+-- Without this, every anonymous (public visitor) query against
+-- public.projects failed with `permission denied for table projects`
+-- (Postgres error 42501) *before* RLS's "Public can view published
+-- projects" policy ever ran. Confirmed directly against the live
+-- project with the anon key:
+--
+--   error: {
+--     code: '42501',
+--     message: 'permission denied for table projects',
+--     hint: 'Grant the required privileges to the current role with:
+--            GRANT SELECT ON public.projects TO anon;'
+--   }
+--
+-- This is why every public page (/, /projects, /projects/[slug]) showed
+-- an empty/404 result even after the seed migration ran, while the
+-- admin dashboard worked fine — the `authenticated` role already had
+-- its GRANT (per the task brief). This does not touch RLS policies,
+-- is_admin(), or the authorization model in any way; it only grants the
+-- base read privilege RLS was already designed to filter.
+grant select on public.projects to anon;

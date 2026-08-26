@@ -8,8 +8,8 @@ export const metadata: Metadata = {
   description: `A collection of projects built by ${siteConfig.name}, ${siteConfig.role}.`,
 };
 
-export default function ProjectsPage() {
-  const projects = getAllProjects();
+export default async function ProjectsPage() {
+  const projects = await getAllProjects();
 
   return (
     <div className="container-app py-16 sm:py-24">

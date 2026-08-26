@@ -4,9 +4,12 @@ import { SectionHeading } from "@/components/sections/section-heading";
 import { neoButtonClasses } from "@/components/ui/neo-button";
 import { getAllProjects, getFeaturedProjects } from "@/lib/projects";
 
-export function ProjectsSection() {
-  const featuredProjects = getFeaturedProjects();
-  const otherProjects = getAllProjects().filter((project) => !project.featured);
+export async function ProjectsSection() {
+  const [featuredProjects, allProjects] = await Promise.all([
+    getFeaturedProjects(),
+    getAllProjects(),
+  ]);
+  const otherProjects = allProjects.filter((project) => !project.featured);
 
   return (
     <section id="projects" className="border-b-[3px] border-border bg-surface">

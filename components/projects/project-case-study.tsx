@@ -41,7 +41,7 @@ export function ProjectCaseStudy({ project }: ProjectCaseStudyProps) {
             {project.title}
           </h1>
           <p className="mt-4 font-sans text-lg text-muted">
-            {project.overview ?? project.shortDescription}
+            {project.shortDescription}
           </p>
 
           {project.technologies.length > 0 && (
@@ -100,26 +100,6 @@ export function ProjectCaseStudy({ project }: ProjectCaseStudyProps) {
             );
           })}
 
-          {project.keyFeatures && project.keyFeatures.length > 0 && (
-            <section>
-              <h2 className="font-sans text-2xl font-bold">Key Features</h2>
-              <ul className="mt-3 space-y-2">
-                {project.keyFeatures.map((feature) => (
-                  <li
-                    key={feature}
-                    className="flex items-start gap-3 font-sans text-muted"
-                  >
-                    <span
-                      className="mt-2 h-2 w-2 shrink-0 bg-accent"
-                      aria-hidden="true"
-                    />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
           {project.testimonial && (
             <NeoCard accentShadow>
               <blockquote>
@@ -128,9 +108,6 @@ export function ProjectCaseStudy({ project }: ProjectCaseStudyProps) {
                 </p>
                 <footer className="mt-4 font-retro text-base text-muted">
                   {project.testimonial.author}
-                  {project.testimonial.role
-                    ? `, ${project.testimonial.role}`
-                    : ""}
                 </footer>
               </blockquote>
             </NeoCard>

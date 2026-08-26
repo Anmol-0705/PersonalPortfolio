@@ -1,4 +1,4 @@
-import { getAllProjects } from "@/lib/projects";
+import type { Project } from "@/types/project";
 import { services } from "@/data/services";
 import { skillGroups } from "@/data/skills";
 import { siteConfig } from "@/data/site-config";
@@ -17,13 +17,17 @@ export type TerminalCommandResult =
   | { action: "clear" }
   | { action: "navigate"; href: string; lines?: TerminalOutputLine[] };
 
+export type TerminalCommandContext = {
+  projects: Project[];
+};
+
 export type TerminalCommand = {
   name: string;
   aliases: string[];
   description: string;
   /** Left out of `help` — used for easter eggs. */
   hidden?: boolean;
-  run: (args: string[]) => TerminalCommandResult;
+  run: (args: string[], context: TerminalCommandContext) => TerminalCommandResult;
 };
 
 function print(lines: TerminalOutputLine[]): TerminalCommandResult {
@@ -88,11 +92,11 @@ const projectsCommand: TerminalCommand = {
   name: "projects",
   aliases: [],
   description: 'View portfolio projects (try "projects <slug>")',
-  run: (args) => {
+  run: (args, { projects }) => {
     const slug = args[0];
 
     if (slug) {
-      const project = getAllProjects().find((item) => item.slug === slug);
+      const project = projects.find((item) => item.slug === slug);
       if (!project) {
         return print([
           line(`No project found for "${slug}".`, "error"),
@@ -106,10 +110,9 @@ const projectsCommand: TerminalCommand = {
       };
     }
 
-    const allProjects = getAllProjects();
     return print([
       line("PORTFOLIO PROJECTS", "accent"),
-      ...allProjects.map((project, index) =>
+      ...projects.map((project, index) =>
         line(
           `${index + 1}. ${project.title} — ${project.category}`,
           "default",
@@ -243,7 +246,10 @@ for (const command of terminalCommands) {
   for (const alias of command.aliases) commandLookup.set(alias, command);
 }
 
-export function runTerminalCommand(input: string): TerminalCommandResult {
+export function runTerminalCommand(
+  input: string,
+  context: TerminalCommandContext,
+): TerminalCommandResult {
   const trimmed = input.trim();
   if (!trimmed) return { action: "print", lines: [] };
 
@@ -257,5 +263,5 @@ export function runTerminalCommand(input: string): TerminalCommandResult {
     ]);
   }
 
-  return command.run(args);
+  return command.run(args, context);
 }

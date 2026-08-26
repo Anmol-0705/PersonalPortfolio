@@ -5,8 +5,13 @@ import { TerminalSquare } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Terminal } from "@/components/terminal/terminal";
 import { neoButtonClasses } from "@/components/ui/neo-button";
+import type { Project } from "@/types/project";
 
-export function TerminalSection() {
+export type TerminalSectionProps = {
+  projects: Project[];
+};
+
+export function TerminalSection({ projects }: TerminalSectionProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -34,7 +39,7 @@ export function TerminalSection() {
         title="terminal.exe"
         className="max-w-2xl!"
       >
-        <Terminal />
+        <Terminal projects={projects} />
       </Modal>
     </section>
   );

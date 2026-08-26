@@ -6,8 +6,11 @@ import { ProjectsSection } from "@/components/sections/projects-section";
 import { EngagementSection } from "@/components/sections/engagement-section";
 import { TerminalSection } from "@/components/sections/terminal-section";
 import { CtaSection } from "@/components/sections/cta-section";
+import { getAllProjects } from "@/lib/projects";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const projects = await getAllProjects();
+
   return (
     <>
       <RetroHero />
@@ -16,7 +19,7 @@ export default function HomePage() {
       <SkillsSection />
       <ProjectsSection />
       <EngagementSection />
-      <TerminalSection />
+      <TerminalSection projects={projects} />
       <CtaSection />
     </>
   );
