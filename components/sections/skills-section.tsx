@@ -1,35 +1,6 @@
 import { TechBadge } from "@/components/ui/tech-badge";
-import type { TechBadgeVariant } from "@/components/ui/tech-badge";
 import { SectionHeading } from "@/components/sections/section-heading";
-
-type SkillGroup = {
-  label: string;
-  variant: TechBadgeVariant;
-  skills: string[];
-};
-
-const skillGroups: SkillGroup[] = [
-  {
-    label: "Frontend",
-    variant: "purple",
-    skills: ["React", "Next.js", "TypeScript", "Tailwind CSS", "Framer Motion", "Redux"],
-  },
-  {
-    label: "Backend",
-    variant: "green",
-    skills: ["Node.js", "Express", "PHP"],
-  },
-  {
-    label: "Data & Services",
-    variant: "blue",
-    skills: ["MySQL", "MongoDB", "Firebase"],
-  },
-  {
-    label: "DevOps & Deployment",
-    variant: "pink",
-    skills: ["Docker", "AWS", "Git", "Vercel"],
-  },
-];
+import { skillGroups } from "@/data/skills";
 
 export function SkillsSection() {
   return (

@@ -5,7 +5,7 @@ across development phases. Update it whenever a phase completes.
 
 ## Current Phase
 
-Phase 5 — Contact Delivery Integration and Retro Interaction Controls
+Phase 6 — Interactive Terminal and Command Experience
 
 ## Phase Status
 
@@ -21,329 +21,265 @@ main
 
 ## Latest Commit
 
-`feat: add contact delivery and retro controls` (this commit — see
-`git log` for the hash)
+`feat: add interactive portfolio terminal` (this commit — see `git log`
+for the hash)
 
 ## Build Status
 
-PASS — `npm run build` completes successfully. `/api/contact` compiles as
-a dynamic server route; all other routes unchanged from Phase 4.
+PASS — `npm run build` completes successfully. All routes unchanged in
+count/shape from Phase 5; no new routes were added (the terminal is
+modal-based, not a route).
 
 ## Lint Status
 
-PASS — `npm run lint` reports no errors or warnings. Note: the
-`react-hooks/set-state-in-effect` rule (new in this toolchain) rejected
-the first draft of `useLocalStorage` (a plain `useEffect` + `setState`
-read) — rewritten with `useSyncExternalStore` instead; see Architecture
-Decisions.
+PASS — `npm run lint` reports no errors or warnings.
+
+## TypeScript Status
+
+PASS — `npm run build`'s TypeScript pass completes with no errors.
 
 ## Tech Stack
 
-- Next.js 16 (App Router, Turbopack), React 19, TypeScript 5
-- Tailwind CSS v4
-- Framer Motion — unchanged from Phase 4
-- Lucide React — added `MonitorCog` (retro settings trigger)
-- **Resend 6.22.1** (new) — server-only transactional email
-- `next/font/google`: Space Grotesk, VT323 (unchanged)
-- Web Audio API (browser built-in, no package) — retro sound effects
+Unchanged from Phase 5: Next.js 16 (App Router, Turbopack), React 19,
+TypeScript 5, Tailwind CSS v4, Framer Motion, Lucide React, Resend,
+`next/font/google` (Space Grotesk, VT323). The terminal is built entirely
+with plain React state and the existing `Modal`/design system — no new
+library.
 
 ## Dependencies
 
-Production: `next`, `react`, `react-dom`, `framer-motion`, `lucide-react`,
-**`resend`** (new).
+**None added.** Same dependency set as Phase 5.
 
-Dev: unchanged from Phase 4.
+## Phase 5 Update — Live Email Delivery
 
-Explicitly not installed, per instructions: a database/ORM/CMS package,
-Redux, React Hook Form, Zod (manual validation was sufficient — see
-`app/api/contact/route.ts`), a CAPTCHA service, analytics.
-
-## Environment Variables
-
-| Variable            | Required | Purpose                                         |
-| -------------------- | -------- | ------------------------------------------------ |
-| `RESEND_API_KEY`    | Yes      | Resend API key for sending mail                  |
-| `RESEND_FROM_EMAIL` | Yes      | Verified sender address                          |
-| `CONTACT_TO_EMAIL`  | No       | Delivery inbox; falls back to `siteConfig.email` |
-
-`.env.example` documents these with placeholder values only.
-`.gitignore` already ignored `.env*`; added `!.env.example` so the
-example file itself can be committed while `.env.local` stays ignored
-(verified with `git check-ignore -v`). No real key was ever written to
-any file in this repository.
+**Live Email Delivery: TESTED AND WORKING.** The user manually configured
+a real `RESEND_API_KEY` in their local `.env.local` and confirmed real
+emails were delivered. This session did not view, modify, or commit
+`.env.local`, and did not request or handle the key — the confirmation
+is recorded here on the user's report alone, per their explicit
+instruction. The Phase 5 "NOT TESTED" status in this file is now
+superseded by this entry.
 
 ## Current Directory Structure
 
 ```
 app/
-  api/
-    contact/route.ts        (new) POST handler: validate → spam-check → Resend
-  about/, contact/, projects/, services/   (unchanged from Phase 4)
-  layout.tsx                 (wraps body in RetroPreferencesProvider,
-                               mounts CursorTrail + RetroControls once)
-  globals.css                 (new: global CRT overlay rule)
+  api/contact/route.ts        (unchanged)
+  about/, contact/, projects/, services/, layout.tsx, globals.css   (unchanged)
+  page.tsx                     (adds <TerminalSection /> before the final CTA)
 components/
-  layout/            navbar.tsx, footer.tsx (unchanged)
-  ui/                modal.tsx (fixed: useId() for aria-labelledby,
-                     plays a click sound on open), others unchanged
-  hero/, sections/, projects/, engagement/   (unchanged from Phase 4)
-  contact/           contact-form.tsx (rewritten: real fetch to
-                     /api/contact, honeypot field, resubmit cooldown),
-                     quick-quote-modal.tsx (unchanged)
-  retro/             (new)
-    retro-preferences-provider.tsx   shared context: crt/trail/sound state
-                                      + lazy Web Audio playClick/playToggle
-    retro-controls.tsx                floating settings button + panel
-    cursor-trail.tsx                   rAF-driven trailing dots, no React
-                                        re-renders per mousemove
+  layout/, ui/, hero/, projects/, engagement/, contact/, retro/   (unchanged)
+  sections/
+    terminal-section.tsx        (new) homepage teaser + Modal + <Terminal />
+    (others unchanged)
+  terminal/                     (new)
+    terminal.tsx                  command input/output UI, history, keyboard nav
+    terminal-commands.ts           data-driven command registry + dispatcher
 data/
+  skills.ts       (new — extracted from skills-section.tsx, see below)
   services.ts, site-config.ts, projects.ts   (unchanged)
 lib/
-  contact-email.ts    (new) server-only: builds HTML/text email, calls Resend
-  quote-estimator.ts, projects.ts, utils.ts   (unchanged)
-hooks/
-  use-local-storage.ts  (new) SSR-safe, useSyncExternalStore-based
-  use-crt-mode.ts        (new) thin context-consumer wrapper
-  use-cursor-trail.ts    (new) thin context-consumer wrapper
-  use-sound.ts            (new) thin context-consumer wrapper
-types/
-  contact.ts    (new) ContactRequestPayload, ContactApiResponse
-  quote.ts, project.ts   (unchanged)
+  projects.ts, quote-estimator.ts, utils.ts, contact-email.ts   (unchanged)
+hooks/            (unchanged)
+types/            (unchanged)
 docs/
   PROJECT_STATE.md
-.env.example    (new)
-public/            (empty — unchanged)
 ```
-
-Not created: `components/retro/crt-overlay.tsx` — see Architecture
-Decisions for why the CRT effect is a global CSS rule instead of a
-component.
 
 ## Routes
 
-| Route              | Status                                                        |
-| ------------------- | ---------------------------------------------------------------- |
-| `/`                | Unchanged homepage; engagement flow now delivers real email      |
-| `/about`           | Minimal placeholder (unchanged)                                  |
-| `/projects`        | Unchanged                                                         |
-| `/projects/[slug]` | Unchanged                                                         |
-| `/services`        | Unchanged                                                         |
-| `/contact`         | Unchanged UI; `ContactForm` now calls the real API                |
-| `not-found`        | Unchanged                                                         |
+Unchanged from Phase 5 (`/`, `/about`, `/projects`, `/projects/[slug]`,
+`/services`, `/contact`, `/api/contact`, `not-found`). The terminal is
+reached from `/` via a button that opens a `Modal` — it is not a route,
+and commands that "navigate" use `next/navigation`'s router against the
+existing routes above. No new route was created or invented.
 
-## API Routes
+## Implemented Components
 
-- **`POST /api/contact`** — accepts `ContactRequestPayload` JSON.
-  Rate-limits by IP (one request per 15s, in-memory), rejects honeypot
-  hits and malformed payloads with `400`, sends via
-  `lib/contact-email.ts`, and returns `{ success: true }` or
-  `{ success: false, error: <safe message> }`. Missing
-  `RESEND_API_KEY`/`RESEND_FROM_EMAIL` returns `500`; a Resend-side send
-  failure returns `502`. Never echoes back internals, stack traces, or
-  env values.
+- **`components/terminal/terminal-commands.ts`** — a typed,
+  data-driven command registry. Each `TerminalCommand` has `name`,
+  `aliases`, `description`, an optional `hidden` flag, and a pure
+  `run(args)` function returning one of three actions: `print` (append
+  output lines), `clear` (reset the transcript), or `navigate` (push a
+  route, optionally printing a line first). `runTerminalCommand(input)`
+  parses the raw input, looks up the command (case-insensitive, alias
+  -aware), and dispatches — or returns a friendly "not recognized"
+  result. No command logic lives inside the React component.
+- **`components/terminal/terminal.tsx`** — the interactive UI: a
+  `role="log"` output transcript (`aria-live="polite"`), a labelled text
+  input, ArrowUp/ArrowDown command history, auto-scroll to the latest
+  output, and auto-focus of the input on mount (see Architecture
+  Decisions for why that needs its own effect). Output lines with an
+  `href` render as a real `next/link` (internal paths) or `<a>`
+  (`mailto:` etc.), so project results are directly clickable/keyboard
+  -selectable, not just printed text.
+- **`components/sections/terminal-section.tsx`** — the homepage
+  placement: a compact "Prefer the command line?" teaser between
+  Engagement and the final CTA, an "Open Terminal" button, and the
+  `Modal` (title `terminal.exe`) that hosts `<Terminal />`.
 
-## Implemented Components (new in Phase 5)
+## Supported Commands
 
-- `components/retro/retro-preferences-provider.tsx` — `RetroPreferencesProvider`
-  / `useRetroPreferences`. One context provider backing all three retro
-  preferences plus lazily-initialized Web Audio playback, mounted once in
-  `app/layout.tsx`.
-- `components/retro/retro-controls.tsx` — `RetroControls`. Fixed
-  bottom-right settings button (`aria-expanded`/`aria-haspopup`) that
-  opens a small "DISPLAY / FX" panel with three `Toggle`s (reused from
-  Phase 1), closing on outside-click or Escape.
-- `components/retro/cursor-trail.tsx` — `CursorTrail`. Renders `null`
-  unless enabled; when active, checks `prefers-reduced-motion` and
-  `(pointer: fine)` once before attaching a `pointermove` listener and a
-  `requestAnimationFrame` loop that writes trail-dot positions directly
-  via `element.style.transform` (no per-frame React state).
-- `lib/contact-email.ts` — server-only. Builds an HTML email (inline
-  styles, escaped user input) with a plain-text fallback, sets
-  `replyTo` to the visitor's validated email, and calls
-  `resend.emails.send()`. Subject line varies by request type (plain
-  contact vs. Quick Sprint vs. Full Build).
-- `app/api/contact/route.ts` — the POST handler described above.
+| Command | Aliases | Behavior |
+| --- | --- | --- |
+| `help` | — | Lists all non-hidden commands with descriptions |
+| `about` | `whoami` | Name, role, experience, projects delivered, location, availability (from `siteConfig`) |
+| `skills` | — | Grouped tech stack (from `data/skills.ts`) |
+| `projects` | — | Numbered, clickable list of all projects (from `lib/projects.ts`) |
+| `projects <slug>` | — | Navigates to `/projects/<slug>` if the slug exists; friendly error otherwise |
+| `services` | `work` | Service labels/titles (from `data/services.ts`) + link to `/services` |
+| `hire` | — | Quick Sprint (₹2000/5hr) and Full Build (custom quote) summary + link to `/#engagement` |
+| `contact` | `email` | Email (mailto link), location, availability (from `siteConfig`) + link to `/contact` |
+| `home` | — | Navigates to `/` |
+| `theme` | — | Points to the existing CRT/trail/sound controls — no duplicate UI |
+| `date` | — | Current local date/time (client-side `Date`) |
+| `clear` | `cls` | Clears the transcript, keeps the input row |
+| `sudo hire` | — | Hidden easter egg — playful redirect to `hire`, omitted from `help` |
+| *(anything else)* | — | `Command not recognized: "<input>"` + hint to type `help` |
 
-## Contact Delivery Architecture
+## Command Aliases
 
-```
-ContactForm (client)
-  → client-side required-field + email-format validation
-  → fetch POST /api/contact
-      → server-side validation (name/email/message shape + length, honeypot)
-      → per-IP rate limit
-      → lib/contact-email.ts: format HTML/text email, call Resend
-  → JSON { success: true } | { success: false, error }
-  → ContactForm shows success or error UI accordingly
-```
+`whoami → about`, `work → services`, `email → contact`, `cls → clear`.
+Exactly the four suggested in the brief — no additional aliases were
+added.
 
-`RESEND_API_KEY`/`RESEND_FROM_EMAIL`/Resend SDK usage is confined to
-`lib/contact-email.ts`, imported only by `app/api/contact/route.ts` — a
-server-only module never reachable from client bundles.
+## Navigation Behavior
 
-## Email Submission Flow
-
-Both the plain contact form and the Quick Sprint/Full Build quote flow
-post the same shape to `/api/contact`; the optional `quote: QuoteContext`
-field is what distinguishes them. `lib/contact-email.ts` reuses
-`summarizeQuickSprint`/`summarizeProject` from `lib/quote-estimator.ts`
-(the same functions the UI uses) to render the engagement details as a
-readable bullet list in both the HTML and plain-text email bodies — never
-raw JSON. Subject line: `New Portfolio Contact Request` for plain
-messages, `New Portfolio Quote Request — Quick Sprint` /
-`— Full Build` otherwise.
-
-## Retro Interaction Architecture
-
-- **CRT**: `RetroPreferencesProvider` sets `document.documentElement.dataset.crt`
-  in a `useEffect` whenever the `crt` boolean changes. A single global CSS
-  rule in `app/globals.css` (`html[data-crt="true"] body::after`) paints a
-  static (non-animated) scanline texture at `z-index: 9999`,
-  `pointer-events: none`. No per-component overlay.
-- **Cursor trail**: see `CursorTrail` above. Only mounts its
-  `pointermove`/rAF loop when enabled, pointer is fine, and reduced
-  motion is not requested.
-- **Sound**: Web Audio `AudioContext` created lazily inside
-  `RetroPreferencesProvider`, only on the first `playClick`/`playToggle`
-  call — never on mount, never before a user gesture. Currently wired to
-  two triggers: the retro toggle switches themselves (`playToggle`) and
-  `Modal` opening (`playClick`). Deliberately **not** wired to every
-  `NeoButton` click site-wide — the brief warns against "annoying audio
-  behavior," and dozens of buttons playing a sound on every click would
-  cross that line.
-
-## User Preference Persistence
-
-All three preferences (`retro-crt-enabled`, `retro-trail-enabled`,
-`retro-sound-enabled`) persist via `hooks/use-local-storage.ts`, built on
-`useSyncExternalStore` rather than a `useEffect` + `setState` read (see
-Architecture Decisions). Defaults are `false` for all three, matching the
-spec. Verified via Playwright: toggling each control updates
-`localStorage` immediately, and a full page reload restores the same
-state (including the CRT `data-crt` attribute).
+`projects <slug>`, `home`, and the clickable links produced by `projects`
+navigate via `next/navigation`'s `useRouter().push()` (for command-
+triggered navigation) or a real `next/link` (for clicked output lines) —
+both go through Next's existing App Router against real, already-built
+routes. `hire`'s and `services`' output links point at `/#engagement` and
+`/services` respectively; `contact`'s email line is a genuine `mailto:`
+link. No route or URL was invented.
 
 ## Accessibility Decisions
 
-- **Modal fix**: `Modal` now calls `useId()` once per instance and uses
-  that value for both `aria-labelledby` on the dialog and `id` on the
-  `<h2>` title, replacing the old hardcoded `"modal-title"`. Verified via
-  Playwright that the generated id is unique (not the old literal string)
-  and that it correctly resolves to the title text. Escape-to-close,
-  overlay-click-to-close, focus trap + restore, and the Phase 4
-  mobile-scroll fix were all re-verified working after this change.
-- Retro controls: real `<button>`s throughout (no clickable divs),
-  `aria-expanded`/`aria-haspopup`/`aria-controls` on the trigger, visible
-  focus rings inherited from the design system, closes on Escape and
-  outside click.
-- `CursorTrail`'s root is `aria-hidden="true"` — it is purely decorative
-  and contributes nothing to the accessibility tree.
-- **Reduced motion takes priority over the decorative toggle.** Even with
-  the cursor-trail preference enabled, the effect never initializes when
-  `prefers-reduced-motion: reduce` is set — verified via Playwright with
-  `reducedMotion: "reduce"` context (trail dots never received a
-  transform). CRT mode has no animation to gate (static scanlines only).
-  Framer Motion usage elsewhere (`RetroHero`, `EngagementSelector`) is
-  unchanged from Phase 2/4 and continues to respect
-  `MotionConfig reducedMotion="user"`.
+- Output transcript uses `role="log"` with `aria-live="polite"` and
+  `aria-relevant="additions"` — a real, correctly-applicable ARIA role
+  for a sequentially-appended message list (not a misapplied "terminal"
+  role).
+- The command input has a visually-hidden `<label>` ("Terminal command
+  input") plus a visible `>` prompt glyph (`aria-hidden`), and the same
+  focus-visible outline treatment used everywhere else in the design
+  system.
+- Project/service/contact links inside the output are real focusable
+  `<a>`/`next/link` elements — reachable and activatable by keyboard, not
+  just mouse.
+- **Modal focus fix**: the shared `Modal` focuses its own first focusable
+  element on open, which is its close (×) button — that's existing,
+  correct behavior for `Modal` in general, but the brief specifically
+  requires the terminal *input* to receive focus on open. `Terminal` adds
+  its own mount effect that defers to the next animation frame before
+  focusing the input, so it runs after `Modal`'s synchronous focus call
+  and wins. Verified via Playwright: the focused element id immediately
+  after open is `terminal-input`, not the close button.
+- Escape-to-close, overlay-click-to-close, focus trap, and focus-restore
+  to the "Open Terminal" trigger are all inherited from `Modal` and were
+  re-verified working with the terminal as content.
+- No animation loops, no glitch effects, nothing gated behind
+  `prefers-reduced-motion` because nothing in the terminal moves —
+  satisfies "respect reduced motion" trivially by not needing to.
+
+## Responsive Behavior
+
+Tested at 375px, 768px, and 1440px via Playwright screenshots:
+
+- **375px**: output wraps correctly (multi-line project entries stay
+  readable, no horizontal scroll), input remains full-width and usable,
+  window chrome (inherited from `Modal`) scales down cleanly.
+- **768px**: output area comfortably fits the 5-project list without
+  excessive scrolling; layout matches the desktop pattern at a smaller
+  scale.
+- **1440px**: full desktop layout, `max-w-2xl` modal width (widened from
+  `Modal`'s default `max-w-lg` via its `className` prop specifically for
+  the terminal's denser text content).
+
+## Completed Features
+
+- Data-driven terminal command system reusing `lib/projects.ts`,
+  `data/services.ts`, `data/site-config.ts`, and the newly-extracted
+  `data/skills.ts` — zero duplicated portfolio content.
+- Command history (ArrowUp/ArrowDown), friendly unknown-command handling,
+  `clear`, aliases, a hidden easter egg, and clickable navigation —
+  all verified via Playwright end to end.
+- Homepage placement that is discoverable but non-intrusive: a small
+  teaser section, no auto-open, no disruption to existing sections or
+  CTAs.
+- Live Resend email delivery confirmed working (Phase 5 status updated
+  above).
 
 ## Architecture Decisions
 
-- **One shared `RetroPreferencesProvider`, not three independent
-  `useLocalStorage` hooks.** The settings panel, `Modal` (sound), and
-  `CursorTrail` all need to read (and in one case write) the same
-  booleans from different parts of the tree. Three independent
-  localStorage subscriptions could desync within a tab; one context
-  keeps them trivially in sync. `hooks/use-crt-mode.ts`,
-  `use-cursor-trail.ts`, and `use-sound.ts` still exist exactly as named
-  in the target architecture — they're just thin consumers of the shared
-  context rather than each independently touching `localStorage`.
-- **`useLocalStorage` rewritten around `useSyncExternalStore`, not
-  `useEffect` + `setState`.** The obvious "read localStorage in an
-  effect, then `setState`" implementation is rejected by this project's
-  current lint config (`react-hooks/set-state-in-effect`, treated as an
-  error). `useSyncExternalStore` is the React-provided API for exactly
-  this case — an external store whose value can legitimately differ
-  between server and client — and avoids both the lint error and any
-  hydration mismatch, since React defers to the server snapshot through
-  hydration and only switches to the live value afterward.
-- **No `components/retro/crt-overlay.tsx`.** The brief explicitly
-  preferred "one global implementation" over per-component overlays; a
-  component would just render a div that does the same thing the CSS
-  rule already does more simply, so it was left out.
-- **No dedicated rate-limit or validation library.** A 15-second
-  in-memory per-IP `Map` and a handful of manual `typeof`/length checks
-  were enough; a real dependency would be overkill for "lightweight spam
-  protection" on a single route.
-- **Sound scoped to two triggers, not global button clicks.** See Retro
-  Interaction Architecture above.
-- **`Modal` now depends on `useSound`, i.e. on being rendered inside
-  `RetroPreferencesProvider`.** True everywhere in this app (the provider
-  wraps the whole `<body>`), but worth knowing if `Modal` is ever reused
-  outside that tree in the future.
+- **`data/skills.ts` extracted from `skills-section.tsx`.** The terminal's
+  `skills` command needed the same grouped list `SkillsSection` already
+  defined locally; extracting it (same pattern as Phase 4's
+  `data/services.ts`) avoided a second copy, per the brief's explicit
+  "must not become a second copy of portfolio data" instruction.
+- **Commands are plain data + pure functions, not React.** `TerminalCommand.run()`
+  takes only `args: string[]` and returns a serializable result — no
+  React imports, no router coupling — so the command table stays easy to
+  read/extend and is trivially unit-testable if tests are added later.
+  `Terminal.tsx` is the only place that touches `useRouter()`, React
+  state, or the DOM.
+- **`clear`/`navigate` modeled as result variants, not special-cased in
+  the component.** A discriminated `TerminalCommandResult` (`print` |
+  `clear` | `navigate`) keeps `Terminal.tsx`'s dispatch logic a single
+  small `if/else` rather than hardcoding "if command name is clear, do X."
+- **Terminal reuses `Modal` rather than a bespoke window.** Escape,
+  overlay-click, focus trap, and the Phase 4 mobile-scroll fix all come
+  for free; the only addition needed was the input-focus effect described
+  above.
+- **Placed as a homepage teaser + modal, not a persistent floating
+  widget.** Keeps it discoverable without adding a permanently-visible
+  UI element competing with the retro settings control already in that
+  corner.
+- **No terminal "route."** Commands that navigate go through the real
+  App Router against existing pages; the terminal itself never becomes
+  a URL-addressable surface, keeping it clearly a secondary, optional
+  experience rather than primary navigation.
 
 ## Known Issues
 
-- **Live email delivery was not tested** — no `RESEND_API_KEY` is
-  configured in this environment. The missing-configuration path was
-  verified (honest `500` response, no fake success), but no email has
-  actually been sent by this implementation. See Live Email Delivery
-  Test Status below.
-- The in-memory rate limiter resets on server restart and isn't shared
-  across serverless instances — a deliberate "lightweight guard" per the
-  brief, not a production-grade spam defense.
-- `CursorTrail`'s pointer/reduced-motion check runs once when the effect
-  starts (on enable), not on a live media-query listener — plugging in a
-  mouse on a touch device won't retroactively enable the trail without
-  re-toggling it.
+- Command matching is case-insensitive but exact-token only — no fuzzy
+  matching or partial-command suggestions (e.g., "hlp" does not suggest
+  "help"). Consistent with "friendly unknown-command message," not a
+  full shell.
+- The terminal's `role="log"` region and the `Modal`'s own
+  `overflow-y-auto` are nested scroll containers; this works correctly in
+  testing but is worth a manual check if the Modal's own sizing changes
+  in a future phase.
 - No automated tests exist yet (out of scope).
 - Favicon is still the Next.js default.
 
-## Live Email Delivery Test Status
-
-**NOT TESTED.** No real `RESEND_API_KEY` was available in this
-environment, and none was requested or invented. What *was* verified:
-
-- With no key configured, `POST /api/contact` returns `500` with a safe,
-  generic error message (never a fake success).
-- `ContactForm` correctly shows its error state with the returned message
-  and a working `mailto:` fallback — never a false "sent" message.
-- Server-side console logging confirms the missing-config path is hit and
-  logs a clear diagnostic without printing any secret values.
-
-When a real key is available, set it in `.env.local` (not `.env.example`)
-and submit the form once to confirm live delivery before relying on it in
-production.
-
 ## Next Planned Phase
 
-Phase 6 — Interactive Terminal and Command Experience
-
-(Not started. Do not begin without explicit instruction.)
+No specific next phase was assigned by this instruction set (unlike
+Phases 1–5, which each named the following phase explicitly). Candidates
+worth considering, not started: a lightweight boot/loading sequence,
+further homepage content/SEO polish, or automated test coverage. Do not
+begin any of these without explicit instruction.
 
 ## Rules for Future Development
 
 - Do not create a nested `PersonalPortfolio` directory or a second Git
   repository.
-- Never commit `.env.local` or any real credential. `.env.example` stays
-  placeholder-only.
-- Do not claim email delivery succeeded unless the Resend API call
-  actually returned success — `ContactForm`'s success state must stay
-  gated on the API response, never optimistic.
-- Keep `RESEND_API_KEY` and all Resend SDK usage inside
-  `lib/contact-email.ts`, imported only from server code
-  (`app/api/contact/route.ts`). Never import it from a `"use client"` file.
+- Never commit `.env.local` or any real credential.
+- Terminal command content must keep reading from existing data sources
+  (`lib/projects.ts`, `data/services.ts`, `data/skills.ts`,
+  `data/site-config.ts`) — never hardcode a second copy of portfolio
+  facts inside `terminal-commands.ts`.
+- New terminal commands should return a `TerminalCommandResult` from a
+  pure `run()` function — keep React/router concerns inside
+  `terminal.tsx`, not the command table.
+- If `Modal` is ever reused for content whose first focusable element
+  should receive initial focus (as the terminal needed), follow the
+  same "defer to next frame" pattern rather than modifying `Modal`'s
+  generic focus behavior, which other modals may depend on as-is.
 - Keep retro preference state flowing through
-  `RetroPreferencesProvider`/`useRetroPreferences` — don't add a second,
-  independent `useLocalStorage` call for the same preference elsewhere.
-- Any new `useLocalStorage`-backed value should follow the
-  `useSyncExternalStore` pattern already in place, not a
-  `useEffect`+`setState` read (the lint rule will reject it).
-- Keep sound effects sparse and intentional — do not wire `playClick`/
-  `playToggle` into every interactive element.
-- Reduced-motion must always win over a decorative toggle; never gate
-  that check behind the user's own preference.
-- Keep estimation logic and label maps in `lib/quote-estimator.ts`;
-  project/service content in `data/projects.ts`/`data/services.ts`.
+  `RetroPreferencesProvider`/`useRetroPreferences`.
+- Keep `RESEND_API_KEY` and Resend SDK usage inside
+  `lib/contact-email.ts`, server-only.
 - Before adding a `lucide-react` icon import, confirm the export exists
   in the installed version.
 - Before committing any Markdown file, verify its encoding with

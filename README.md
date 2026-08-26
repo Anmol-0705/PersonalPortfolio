@@ -7,17 +7,17 @@ modern, premium foundation.
 
 ## Status
 
-**Phase 5 — Contact Delivery Integration and Retro Interaction Controls: Complete.**
+**Phase 6 — Interactive Terminal and Command Experience: Complete.**
 
-The contact and quote-request forms now submit to a real API route
-(`/api/contact`) that validates the request, applies basic spam
-protection, and sends email via [Resend](https://resend.com). Live
-delivery requires a configured `RESEND_API_KEY` — see Environment
-Variables below. The site also ships opt-in retro interaction controls
-(CRT scanlines, cursor trail, sound effects), all off by default and
-persisted per-browser. See [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md)
-for the full implementation record, including what was and wasn't tested
-with a live email key.
+The site now includes an optional, discoverable retro terminal (opened
+from a compact homepage teaser) that lets visitors explore the portfolio
+by typing commands — `help`, `about`, `skills`, `projects`, `services`,
+`hire`, `contact`, and more. It's a data-driven layer on top of existing
+content, not a second copy of it, and it never replaces normal site
+navigation. Real contact/quote email delivery (Resend) has now been
+manually tested end-to-end with a live API key and confirmed working.
+See [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) for the full
+implementation record.
 
 ## Tech Stack
 
@@ -28,7 +28,8 @@ with a live email key.
 - [Resend](https://resend.com) — transactional email (server-side only)
 - `next/font` — self-hosted Google Fonts (Space Grotesk, VT323)
 
-No CMS, database, ORM, or analytics package is installed.
+No new dependency was added for the terminal — it's built with plain
+React and the existing Modal/design system.
 
 ## Environment Variables
 
@@ -40,10 +41,6 @@ Copy `.env.example` to `.env.local` and fill in real values (never commit
 | `RESEND_API_KEY`    | Resend API key — required for email delivery          |
 | `RESEND_FROM_EMAIL` | Verified sender address (or Resend's sandbox sender)   |
 | `CONTACT_TO_EMAIL`  | Inbox that receives contact/quote requests             |
-
-Without `RESEND_API_KEY` configured, the contact form still works end to
-end (validation, spam checks, UI states) but the API honestly reports a
-delivery failure instead of pretending to succeed.
 
 ## Local Setup
 
@@ -70,15 +67,9 @@ app/
   api/contact/route.ts   Server-side contact/quote email delivery
   ...                     Routes (App Router)
 components/
-  layout/                 Navbar, Footer
-  ui/                     Reusable design-system primitives (incl. Modal)
-  hero/                   Homepage hero
-  sections/                Homepage content sections
-  projects/                Project card, grid, media, and case study UI
-  engagement/               Quick Sprint calculator, project estimator, tabs
-  contact/                   Contact form, quote modal
-  retro/                      CRT/trail/sound preferences, floating controls
-data/                    Typed static content (site config, projects, services)
+  layout/, ui/, hero/, sections/, projects/, engagement/, contact/, retro/
+  terminal/               Interactive command-line experience
+data/                    Typed static content (site config, projects, services, skills)
 lib/                     Shared utilities, estimation logic, email formatting
 hooks/                   use-local-storage, use-crt-mode, use-cursor-trail, use-sound
 types/                   Shared TypeScript types
@@ -94,25 +85,30 @@ design system, reusable UI primitives, route foundation.
 skills, featured projects, engagement preview, final CTA.
 
 **Phase 3 — Dynamic Project Showcase** · Typed project data architecture,
-full `/projects` listing, statically generated `/projects/[slug]` case
-studies.
+full `/projects` listing, statically generated case studies.
 
 **Phase 4 — Engagement Selector and Conversion Flow** · Quick Sprint
-calculator and Full Build project estimator with transparent, honest
-guidance; a quote modal carrying selections into a contact form.
+calculator and Full Build project estimator with honest guidance and a
+quote modal.
 
-**Phase 5 — Contact Delivery Integration and Retro Interaction Controls**
+**Phase 5 — Contact Delivery and Retro Interaction Controls** · Real
+Resend-backed email delivery (server-validated, spam-guarded) — **live
+delivery confirmed working**. Opt-in CRT scanlines, cursor trail, and
+sound effects, all persisted per-browser.
 
-- Real API-backed email delivery via Resend, with server-side validation,
-  a honeypot spam trap, and a lightweight per-IP rate limit
-- Contact form only ever shows success after the API confirms delivery —
-  never before
-- Opt-in CRT scanline overlay, retro cursor trail, and Web Audio UI sound
-  effects, all off by default, persisted in `localStorage`, and
-  respecting `prefers-reduced-motion`
-- Fixed a Modal accessibility issue: `aria-labelledby` now uses a unique
-  `useId()`-generated ID per instance instead of a fixed string
+**Phase 6 — Interactive Terminal and Command Experience**
+
+- `components/terminal/` — a data-driven command terminal reusing the
+  existing Modal, project data, services data, and site configuration
+- Commands: `help`, `about` (alias `whoami`), `skills`, `projects`
+  (optionally `projects <slug>`, with clickable results), `services`
+  (alias `work`), `hire`, `contact` (alias `email`), `home`, `theme`,
+  `date`, `clear` (alias `cls`), plus a hidden `sudo hire` easter egg
+- Command history via ArrowUp/ArrowDown, friendly unknown-command
+  handling, keyboard-accessible project links, focus management on
+  open/close
 
 ## Next Steps
 
-Phase 6 — Interactive Terminal and Command Experience.
+Recommended next phase: a lightweight boot/loading sequence or deeper
+homepage polish pass — no further phase has been started.
